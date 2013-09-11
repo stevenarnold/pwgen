@@ -6,11 +6,17 @@
 
 
 (def alpha-lower "abcdefghijklmnopqrstuvwxyz")
+(def right-alpha-lower "hynmjuiklop")
+(def left-alpha-lower "qazwsxedcrfvtgb")
 (def alpha-upper "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 (def alpha (str alpha-lower alpha-upper))
 (def numeric "0123456789")
+(def left-numeric "09876")
+(def right-numeric "12345")
+(def alphanumeric (str alpha numeric))
 (def special "~`!@#$%^&*()-_=+]}[{;:,<.>/?'|")
 (def special-nocaps "`-=;',./[]")
+(def right-special-nocaps ",./;'[]-=")
 (def all-chars (str alpha-lower alpha-upper numeric special))
 (def all-noshift-chars (str alpha-lower numeric special-nocaps))
 (def dict "resources/wordlist.txt")
