@@ -72,7 +72,7 @@
   [])
 
 (defn rand-between [at-least at-most]
-  (+ at-least (int (rand (+ 1 at-most)))))
+  (+ at-least (int (rand (- at-most at-least)))))
 
 (defn randomly-pick
   [pct]
@@ -99,7 +99,7 @@
 (defn generate-candidate [at-least at-most memorable allow-spaces min-numbers
                           min-capitals
                 & {:keys [charset] :or {charset all-chars}}]
-  (let [password-length (rand-between at-least (- at-most at-least))]
+  (let [password-length (rand-between at-least at-most)]
     (loop [curr-password ""]
       (cond 
         (>= (count curr-password) password-length)
@@ -130,15 +130,26 @@
   [candidate min-capitals]
   (rule-min-charset candidate min-capitals alpha-upper))
 
+(defn select-count
+  [minimum maximum]
+  (if (< maximum minimum) ;; includes the case of maximum = -1
+    minimum
+    (rand-between minimum maximum)))
+
 (defn generate [& args]
   (let [min-numbers (nth args 4)
-        min-capitals (nth args 5)
+        max-numbers (nth args 5)
+        num-numbers (select-count min-numbers max-numbers)
+        min-capitals (nth args 6)
+        max-capitals (nth args 7)
+        num-capitals (select-count min-capitals max-capitals)
         candidate (apply generate-candidate args)]
+    (println "num-numbers: " num-numbers "; num-capitals: " num-capitals)
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password
-                            (rule-min-numbers min-numbers)
-                            (rule-min-capitals min-capitals))]
+                            (rule-min-numbers num-numbers)
+                            (rule-min-capitals num-capitals))]
         (if (= curr-password new-candidate)
           new-candidate
           (if (= (mod (inc tries) 10) 0)
@@ -151,13 +162,17 @@
   (alter-var-root #'*read-eval* (constantly false))
   ;; Parse command-line options and create a PasswordPreferences record
   ;; to pass to the generate function
-  (let [{:keys [max min memorable allow-spaces min-numbers min-capitals]}
+  (let [{:keys [max min memorable allow-spaces min-numbers max-numbers min-capitals 
+                max-capitals]}
         (nth (cli args
               ["-m" "--max" "The maximum number of characters" :parse-fn #(Integer. %)] 
               ["-n" "--min" "The minimum number of characters" :parse-fn #(Integer. %)]
-              ["-md" "--min-numbers" "The minimum number of numeric characters" :default 0 :parse-fn #(Integer. %)]
-              ["-mc" "--min-capitals" "The minimum number of uppercase characters" :default 0 :parse-fn #(Integer. %)]
+              ["-nd" "--min-numbers" "The minimum number of numeric characters" :default 0 :parse-fn #(Integer. %)]
+              ["-md" "--max-numbers" "The maximum number of numeric characters" :default -1 :parse-fn #(Integer. %)]
+              ["-nc" "--min-capitals" "The minimum number of uppercase characters" :default 0 :parse-fn #(Integer. %)]
+              ["-mc" "--max-capitals" "The maximum number of uppercase characters" :default -1 :parse-fn #(Integer. %)]
               ["-s" "--allow-spaces" "Allow spaces in the password" :default 0 :parse-fn #(Integer. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
              0)]
-    (set-clip! (generate min max memorable allow-spaces min-numbers min-capitals))))
+    (set-clip! (generate min max memorable allow-spaces min-numbers max-numbers 
+                         min-capitals max-capitals))))

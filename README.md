@@ -30,11 +30,11 @@ Basic subcommands:
 <br /><br />
 >   **--min-numbers or -nd**: The minimum number of numeric digits in the password.
 <br /><br />
->   **--max-numbers or -md**: The maximum number of numeric digits in the password.  If both min and max numbers are used, the program picks a random number of characters between the two (inclusive) that must be numeric.
+>   **--max-numbers or -md**: The maximum number of numeric digits in the password.  If both min and max numbers are used, the program picks a random number of characters between the two (inclusive) that must be numeric.  If --max-numbers is either 0 or less than --min-numbers, both settings are ignored, which means any number of digits may appear in the password.  To exclude digits from the password, use a charset that does not contain digits.
 <br /><br />
 >   **--min-capitals or -nc**: The minimum number of capital letters in the password.
 <br /><br />
->   **--max-capitals or -mc**: The maximum number of capital letters in the password.  If both min and max capitals are used, the program picks a random number of characters between the two (inclusive) that must be capital.
+>   **--max-capitals or -mc**: The maximum number of capital letters in the password.  If both min and max capitals are used, the program picks a random number of characters between the two (inclusive) that must be capital.  If --max-capitals is either 0 or less than --min-capitals, both settings are ignored, which means any number of capital letters may appear in the password.  To exclude capital letters from the password, use a charset that does not contain them.
 <br /><br />
 >   **--min-special or -ns**:
 <br /><br />
