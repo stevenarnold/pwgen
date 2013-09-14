@@ -1,4 +1,4 @@
-(ns password-picker.core
+(ns pwgen.core
   (:gen-class))
 (use '[clojure.tools.cli :only [cli]])
 (load "record-defaults")
@@ -18,6 +18,7 @@
 (def special-nocaps "`-=;',./[]")
 (def right-special-nocaps ",./;'[]-=")
 (def all-chars (str alpha-lower alpha-upper numeric special))
+(def all-nonspecial-chars (str alpha-lower alpha-upper numeric))
 (def all-noshift-chars (str alpha-lower numeric special-nocaps))
 (def dict "resources/wordlist.txt")
 
@@ -107,12 +108,20 @@
         :else
           (recur (str curr-password (next-string memorable charset allow-spaces)))))))
 
+(defn normalize-charset
+  [charset]
+  (clojure.string/replace charset "-" "\\-"))
+
 (defn rule-min-charset
   [candidate min-chars charset]
   (if (= 0 min-chars)
     candidate
     (loop [curr-password candidate]
-      (let [curr-password-chars (count (clojure.core/re-seq (clojure.core/re-pattern (str "[" charset "]")) curr-password))]
+      (let [normalized-charset (normalize-charset charset)
+            curr-password-chars (count 
+                                  (clojure.core/re-seq 
+                                    (clojure.core/re-pattern 
+                                      (str "[" normalized-charset "]")) curr-password))]
         (println "current password candidate: " curr-password)
         (println "OK chars in candidate: " curr-password-chars)
         (if (>= curr-password-chars min-chars)
@@ -130,6 +139,10 @@
   [candidate min-capitals]
   (rule-min-charset candidate min-capitals alpha-upper))
 
+(defn rule-min-specials
+  [candidate min-specials special-charset]
+  (rule-min-charset candidate min-specials special-charset))
+
 (defn select-count
   [minimum maximum]
   (if (< maximum minimum) ;; includes the case of maximum = -1
@@ -137,23 +150,28 @@
     (rand-between minimum maximum)))
 
 (defn generate [& args]
-  (let [min-numbers (nth args 4)
-        max-numbers (nth args 5)
+  (let [[min max memorable allow-spaces min-numbers max-numbers
+         min-capitals max-capitals min-special max-special
+         special-charset] args  ;; Basic parameters
         num-numbers (select-count min-numbers max-numbers)
-        min-capitals (nth args 6)
-        max-capitals (nth args 7)
         num-capitals (select-count min-capitals max-capitals)
-        candidate (apply generate-candidate args)]
+        num-specials (select-count min-special max-special)
+        charset (str all-nonspecial-chars special-charset)
+        candidate (generate-candidate min max memorable allow-spaces num-numbers
+                                      num-capitals :charset charset)]
     (println "num-numbers: " num-numbers "; num-capitals: " num-capitals)
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password
-                            (rule-min-numbers num-numbers)
-                            (rule-min-capitals num-capitals))]
+                              (rule-min-numbers num-numbers)
+                              (rule-min-capitals num-capitals)
+                              (rule-min-specials num-specials special-charset))]
         (if (= curr-password new-candidate)
           new-candidate
-          (if (= (mod (inc tries) 10) 0)
-            (recur (apply generate-candidate args) (inc tries))
+          (if (= (mod (inc tries) 20) 0)
+            (recur (generate-candidate min max memorable allow-spaces num-numbers
+                                       num-capitals num-specials :charset charset) 
+                   (inc tries))
             (recur new-candidate (inc tries))))))))
 
 (defn -main
@@ -163,7 +181,7 @@
   ;; Parse command-line options and create a PasswordPreferences record
   ;; to pass to the generate function
   (let [{:keys [max min memorable allow-spaces min-numbers max-numbers min-capitals 
-                max-capitals]}
+                max-capitals min-special max-special special-charset]}
         (nth (cli args
               ["-m" "--max" "The maximum number of characters" :parse-fn #(Integer. %)] 
               ["-n" "--min" "The minimum number of characters" :parse-fn #(Integer. %)]
@@ -171,8 +189,12 @@
               ["-md" "--max-numbers" "The maximum number of numeric characters" :default -1 :parse-fn #(Integer. %)]
               ["-nc" "--min-capitals" "The minimum number of uppercase characters" :default 0 :parse-fn #(Integer. %)]
               ["-mc" "--max-capitals" "The maximum number of uppercase characters" :default -1 :parse-fn #(Integer. %)]
+              ["-ns" "--min-special" "The minimum number of special (punctuation) characters" :default 0 :parse-fn #(Integer. %)]
+              ["-ms" "--max-special" "The maximum number of special (punctuation) characters" :default -1 :parse-fn #(Integer. %)]
               ["-s" "--allow-spaces" "Allow spaces in the password" :default 0 :parse-fn #(Integer. %)]
+              ["-sc" "--special-charset" "Use the given special characters instead of the normal set" :default special :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
              0)]
     (set-clip! (generate min max memorable allow-spaces min-numbers max-numbers 
-                         min-capitals max-capitals))))
+                         min-capitals max-capitals min-special max-special 
+                         special-charset))))
