@@ -1,6 +1,8 @@
 (ns pwgen.core
-  (:gen-class))
-(use '[clojure.tools.cli :only [cli]])
+  (:gen-class)
+  [:require [clojure.string :refer [split blank? replace]]]
+  [:require [clojure.tools.cli :refer [cli]]])
+(require '[clojure.data.json :as json])
 (load "record-defaults")
 (load "clip-utils")
 
@@ -18,12 +20,9 @@
 (def special-nocaps "`-=;',./[]")
 (def right-special-nocaps ",./;'[]-=")
 (def all-chars (str alpha-lower alpha-upper numeric special))
-(def all-nonspecial-chars (str alpha-lower alpha-upper numeric))
 (def all-noshift-chars (str alpha-lower numeric special-nocaps))
-(def dict "resources/wordlist.txt")
-
-(def words (with-open [rdr (clojure.java.io/reader dict)]
-    (doall (line-seq rdr))))
+(def dict "wordlist.txt")
+(def words (split (slurp (clojure.java.io/resource dict)) #"[\r\n]+"))
 
 (defn string-splice
   ([target new offset] (string-splice target new offset (count new)))
@@ -39,38 +38,56 @@
 ;;     clipboard.  If the profile was encrypted, the user will be prompted
 ;;     for the master password.
 
-(defrecord+defaults PasswordPreferences
-  [at-least                15        ;; Password must be at least this long
-   at-most                 25        ;; And no longer than this
-   lower-alpha-weight      20        ;; Weighting for lowercase characters
-   upper-alpha-weight       4        ;; Weighting for uppercase characters
-   avoid-shift-pct         10        ;; Percentage chance we'll use a shifted char
-                                     ;;     if one is picked
-   use-at-least-upper       1        ;; Use at least this many uppercase chars.
-                                     ;;     All use-at-least values must be < at-least
-   numeric-weight           4        ;; Weighting for numeric characters
-   use-at-least-numeric     1        ;; Use at least this many numeric chars
-   special-weight           0        ;; Weighting for special chars
-   use-at-least-special     0        ;; Use at least this many special characters
-   allow-spaces             false    ;; Allow spaces to be in password
-   make-memorable-pct       0]       ;; Percentage chance we'll use a dictionary 
+(defrecord+defaults PasswordProfile
+  [min                     15        ;; Password must be at least this long
+   max                     25        ;; And no longer than this
+   min-capitals             1        ;; Use at least this many uppercase chars
+   max-capitals             4        ;; Use no more than this many uppercase chars
+   min-numeric              1        ;; Use at least this many numeric chars
+   max-numeric              4        ;; Use no more than this many numeric chars
+   min-special              1        ;; Use at least this many special characters
+   max-special              4        ;; Use no more than this many special characters
+   allow-spaces             true     ;; Allow spaces to be in password
+   special-charset          #"[-_.]" ;; Use these special characters by default
+   make-memorable-pct       100]     ;; Percentage chance we'll use a dictionary 
                                      ;;     word when an alpha char would have been
                                      ;;     picked
   )
 
-(defn- create-new-profiles
+(defn- save-profiles
   "Create a new ~/.passwd-profiles file if it doesn't exist
-  and populate it with some common preferences."
+  and populate it with our profiles."
   [])
 
 (defn- add-profile
   "Add a new profile to the ~/.passwd-profiles file."
-  [profile])
+  [profile & args]
+  (let [[min max memorable allow-spaces min-numbers max-numbers
+         min-capitals max-capitals min-special max-special
+         special-charset create-profile] args
+        profile-record (->PasswordProfile min max min-capitals max-capitals
+                                          min-numbers max-numbers min-special
+                                          max-special allow-spaces special-charset
+                                          memorable)]
+    ) ;; Here is where we would assoc this profile to the read-profiles hash and save it
+  )
+
+(defn- -read-profiles
+  [file]
+  (let [homedir (System/getProperty (str "user.home"))
+        profile-path (if (.startsWith file "~")
+                       (str homedir (subs file 1))
+                       file)]
+    (json/read-str (slurp file))))
 
 (defn- read-profiles
-  "Read in the existing profiles file.  Create one if it doesn't
-  exist and use that."
-  [])
+  "Read in the existing profiles file if it exists and convert to a Clojure
+  data structure from JSON"
+([]
+ (-read-profiles "~/.pwgenrc"))
+([file]
+ (-read-profiles file)) 
+)
 
 (defn rand-between [at-least at-most]
   (+ at-least (int (rand (- at-most at-least)))))
@@ -94,11 +111,10 @@
              (randomly-pick memorable-pct))
       (if (randomly-pick allow-spaces)
         candidate
-        (clojure.string/replace candidate #" " ""))
+        (replace candidate #" " ""))
       next-char)))
 
-(defn generate-candidate [at-least at-most memorable allow-spaces min-numbers
-                          min-capitals
+(defn generate-candidate [at-least at-most memorable allow-spaces
                 & {:keys [charset] :or {charset all-chars}}]
   (let [password-length (rand-between at-least at-most)]
     (loop [curr-password ""]
@@ -110,7 +126,7 @@
 
 (defn normalize-charset
   [charset]
-  (clojure.string/replace charset "-" "\\-"))
+  (replace charset "-" "\\-"))
 
 (defn rule-min-charset
   [candidate min-chars charset]
@@ -152,14 +168,16 @@
 (defn generate [& args]
   (let [[min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
-         special-charset] args  ;; Basic parameters
+         special-charset create-profile] args  ;; Basic parameters
         num-numbers (select-count min-numbers max-numbers)
         num-capitals (select-count min-capitals max-capitals)
         num-specials (select-count min-special max-special)
-        charset (str all-nonspecial-chars special-charset)
-        candidate (generate-candidate min max memorable allow-spaces num-numbers
-                                      num-capitals :charset charset)]
-    (println "num-numbers: " num-numbers "; num-capitals: " num-capitals)
+        charset (str alphanumeric special-charset)
+        candidate (generate-candidate min max memorable allow-spaces :charset charset)]
+    (println "num-numbers: " num-numbers "; num-capitals: " num-capitals "; num-specials: " num-specials)
+    (println "charset = %[" charset "]")
+    (if (not (blank? create-profile))
+      (apply (partial add-profile create-profile) args))
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password
@@ -181,7 +199,7 @@
   ;; Parse command-line options and create a PasswordPreferences record
   ;; to pass to the generate function
   (let [{:keys [max min memorable allow-spaces min-numbers max-numbers min-capitals 
-                max-capitals min-special max-special special-charset]}
+                max-capitals min-special max-special special-charset create-profile]}
         (nth (cli args
               ["-m" "--max" "The maximum number of characters" :parse-fn #(Integer. %)] 
               ["-n" "--min" "The minimum number of characters" :parse-fn #(Integer. %)]
@@ -193,8 +211,9 @@
               ["-ms" "--max-special" "The maximum number of special (punctuation) characters" :default -1 :parse-fn #(Integer. %)]
               ["-s" "--allow-spaces" "Allow spaces in the password" :default 0 :parse-fn #(Integer. %)]
               ["-sc" "--special-charset" "Use the given special characters instead of the normal set" :default special :parse-fn #(String. %)]
+              ["-cp" "--create-profile" "Save the profile of this invocation with a given tag" :default "" :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
              0)]
     (set-clip! (generate min max memorable allow-spaces min-numbers max-numbers 
                          min-capitals max-capitals min-special max-special 
-                         special-charset))))
+                         special-charset create-profile))))
