@@ -3,6 +3,7 @@
   [:require [clojure.string :refer [split blank? replace]]]
   [:require [clojure.tools.cli :refer [cli]]])
 (require '[clojure.data.json :as json])
+(import '(java.io File))
 (load "record-defaults")
 (load "clip-utils")
 
@@ -23,6 +24,7 @@
 (def all-noshift-chars (str alpha-lower numeric special-nocaps))
 (def dict "wordlist.txt")
 (def words (split (slurp (clojure.java.io/resource dict)) #"[\r\n]+"))
+; (def all-profiles (pwgen.core/read-profiles))
 
 (defn string-splice
   ([target new offset] (string-splice target new offset (count new)))
@@ -54,10 +56,36 @@
                                      ;;     picked
   )
 
+(defn- get-profile-path
+  [file]
+  (let [homedir (System/getProperty (str "user.home"))]
+    (if (.startsWith file "~")
+      (str homedir (subs file 1))
+      file)))
+
 (defn- save-profiles
   "Create a new ~/.passwd-profiles file if it doesn't exist
   and populate it with our profiles."
-  [])
+  [profiles])
+
+(defn- -read-profiles
+  [file]
+  (let [profile-path (get-profile-path file)
+        f (File. profile-path)]
+    (if (.isFile f)
+      (json/read-str (slurp profile-path))
+      (doall
+        (spit profile-path "{}")
+        (json/read-str "{}")))))
+
+(defn- read-profiles
+  "Read in the existing profiles file if it exists and convert to a Clojure
+  data structure from JSON"
+([]
+ (-read-profiles "~/.pwgenrc"))
+([file]
+ (-read-profiles file)) 
+)
 
 (defn- add-profile
   "Add a new profile to the ~/.passwd-profiles file."
@@ -68,26 +96,10 @@
         profile-record (->PasswordProfile min max min-capitals max-capitals
                                           min-numbers max-numbers min-special
                                           max-special allow-spaces special-charset
-                                          memorable)]
-    ) ;; Here is where we would assoc this profile to the read-profiles hash and save it
-  )
-
-(defn- -read-profiles
-  [file]
-  (let [homedir (System/getProperty (str "user.home"))
-        profile-path (if (.startsWith file "~")
-                       (str homedir (subs file 1))
-                       file)]
-    (json/read-str (slurp file))))
-
-(defn- read-profiles
-  "Read in the existing profiles file if it exists and convert to a Clojure
-  data structure from JSON"
-([]
- (-read-profiles "~/.pwgenrc"))
-([file]
- (-read-profiles file)) 
-)
+                                          memorable)
+        all-profiles (pwgen.core/read-profiles)]
+    (spit (get-profile-path "~/.pwgenrc")
+          (json/write-str (assoc all-profiles profile profile-record)))))
 
 (defn rand-between [at-least at-most]
   (+ at-least (int (rand (- at-most at-least)))))
@@ -198,9 +210,7 @@
   (alter-var-root #'*read-eval* (constantly false))
   ;; Parse command-line options and create a PasswordPreferences record
   ;; to pass to the generate function
-  (let [{:keys [max min memorable allow-spaces min-numbers max-numbers min-capitals 
-                max-capitals min-special max-special special-charset create-profile]}
-        (nth (cli args
+  (let [args (cli args
               ["-m" "--max" "The maximum number of characters" :parse-fn #(Integer. %)] 
               ["-n" "--min" "The minimum number of characters" :parse-fn #(Integer. %)]
               ["-nd" "--min-numbers" "The minimum number of numeric characters" :default 0 :parse-fn #(Integer. %)]
@@ -213,7 +223,14 @@
               ["-sc" "--special-charset" "Use the given special characters instead of the normal set" :default special :parse-fn #(String. %)]
               ["-cp" "--create-profile" "Save the profile of this invocation with a given tag" :default "" :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
-             0)]
-    (set-clip! (generate min max memorable allow-spaces min-numbers max-numbers 
-                         min-capitals max-capitals min-special max-special 
-                         special-charset create-profile))))
+        {:keys [max min memorable allow-spaces min-numbers max-numbers min-capitals 
+                max-capitals min-special max-special special-charset create-profile]}
+        (nth args 0)
+        subcommand (nth (nth args 1) 0)]
+    (println "subcommand: " subcommand)
+    (case subcommand
+      "generate"
+      (set-clip! (generate min max memorable allow-spaces min-numbers max-numbers 
+                           min-capitals max-capitals min-special max-special 
+                           special-charset create-profile))
+      (println (str "Invalid subcommand: '" subcommand "'")))))
