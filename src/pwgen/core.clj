@@ -216,12 +216,11 @@
     (deref (resolve (symbol (str "pwgen.core/" charset))))
     charset))
 
-(defn generate [& args]
-  (let [[min max memorable allow-spaces min-numbers max-numbers
+(defn generate [{:keys [min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
          special-charset initial-charset ending-charset 
-         create-profile] args  ;; Basic parameters
-        resolved-special-charset (resolve-charset special-charset)
+         create-profile] :as args}]
+  (let [resolved-special-charset (resolve-charset special-charset)
         num-numbers (select-count min-numbers max-numbers)
         num-capitals (select-count min-capitals max-capitals)
         num-specials (select-count min-special max-special)
@@ -278,16 +277,19 @@
                 :default alphanumeric :parse-fn #(resolve-charset (String. %))]
               ["-cp" "--create-profile" "Save the profile of this invocation with a given tag" 
                 :default "" :parse-fn #(String. %)]
+              ["-up" "--use-profile" "Use the given profile in this invocation, overriding with other flags passed"
+                :default "" :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
-        {:keys [max min min-numbers max-numbers min-capitals max-capitals min-special
-                max-special allow-spaces special-charset initial-charset
-                ending-charset create-profile memorable]}
+        {:keys [use-profile]}
         (nth args 0)
         subcommand (nth (nth args 1) 0)]
     (println "subcommand: " subcommand)
     (case subcommand
       "generate"
-      (set-clip! (generate min max memorable allow-spaces min-numbers max-numbers 
-                           min-capitals max-capitals min-special max-special 
-                           special-charset initial-charset ending-charset create-profile))
+      (if (blank? use-profile)
+        (set-clip! (generate (nth args 0)))
+        (let [profile (get (read-profiles) use-profile)]
+          (set-clip! (generate (merge profile (nth args 0))))))
+      "help"
+      (println (slurp "README.md"))
       (println (str "Invalid subcommand: '" subcommand "'")))))
