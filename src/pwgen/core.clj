@@ -73,6 +73,25 @@
   and populate it with our profiles."
   [profiles])
 
+(defn- merge-profile
+  [profile params]
+  (let [kprofile (into {} 
+                      (for [[k v] profile] 
+                        [(keyword k) v]))]
+    (reduce (fn [memo pair]
+              (let [[k v] pair]
+                (if (and (= v -1) (not (contains? kprofile k)))
+                  (case k
+                    "min"
+                    (assoc memo k 15)
+                    "max"
+                    (assoc memo k 25)
+                    (assoc memo k 0))
+                  (if (not (or (= v "") (= v -1)))
+                    (assoc memo k v)
+                    memo))))
+            kprofile params)))
+
 (defn- -read-profiles
   [file]
   (let [profile-path (get-profile-path file)
@@ -253,21 +272,21 @@
   ;; Parse command-line options and create a PasswordPreferences record
   ;; to pass to the generate function
   (let [args (cli args
-              ["-m" "--max" "The maximum number of characters" :parse-fn #(Integer. %)] 
-              ["-n" "--min" "The minimum number of characters" :parse-fn #(Integer. %)]
-              ["-nd" "--min-numbers" "The minimum number of numeric characters" :default 0 
+              ["-m" "--max" "The maximum number of characters" :default -1 :parse-fn #(Integer. %)] 
+              ["-n" "--min" "The minimum number of characters" :default -1 :parse-fn #(Integer. %)]
+              ["-nd" "--min-numbers" "The minimum number of numeric characters" :default -1 
                 :parse-fn #(Integer. %)]
               ["-md" "--max-numbers" "The maximum number of numeric characters" :default -1 
                 :parse-fn #(Integer. %)]
-              ["-nc" "--min-capitals" "The minimum number of uppercase characters" :default 0 
+              ["-nc" "--min-capitals" "The minimum number of uppercase characters" :default -1 
                 :parse-fn #(Integer. %)]
               ["-mc" "--max-capitals" "The maximum number of uppercase characters" :default -1 
                 :parse-fn #(Integer. %)]
               ["-ns" "--min-special" "The minimum number of special (punctuation) characters" 
-                :default 0 :parse-fn #(Integer. %)]
+                :default -1 :parse-fn #(Integer. %)]
               ["-ms" "--max-special" "The maximum number of special (punctuation) characters" 
                 :default -1 :parse-fn #(Integer. %)]
-              ["-s" "--allow-spaces" "Allow spaces in the password" :default 0 
+              ["-s" "--allow-spaces" "Allow spaces in the password" :default -1 
                 :parse-fn #(Integer. %)]
               ["-sc" "--special-charset" "Use the given special characters instead of the normal set" 
                 :default special :parse-fn #(resolve-charset (String. %))]
@@ -288,8 +307,9 @@
       "generate"
       (if (blank? use-profile)
         (set-clip! (generate (nth args 0)))
-        (let [profile (get (read-profiles) use-profile)]
-          (set-clip! (generate (merge profile (nth args 0))))))
+        (let [profile (get (read-profiles) use-profile)
+              merged-options (merge-profile profile (nth args 0))]
+          (set-clip! (generate merged-options))))
       "help"
       (println (slurp "README.md"))
       (println (str "Invalid subcommand: '" subcommand "'")))))
