@@ -29,7 +29,9 @@
                         'all-noshift-chars])
 (def dict "wordlist.txt")
 (def words (split (slurp (clojure.java.io/resource dict)) #"[\r\n]+"))
-; (def all-profiles (pwgen.core/read-profiles))
+(def default-profile "{\"standard\":{\"min\":20,\"max\":30,\"min-capitals\":1,\"max-capitals\":4,
+                     \"min-numeric\":1,\"max-numeric\":4,\"min-special\":1,\"max-special\":4,
+                     \"allow-spaces\":0,\"special-charset\":\"special\",\"make-memorable-pct\":100}}")
 
 (defn string-splice
   ([target new offset] (string-splice target new offset (count new)))
@@ -93,22 +95,24 @@
             kprofile params)))
 
 (defn- -read-profiles
-  [file]
+  [file & {:keys [json-str] :or {json-str "{}"}}]
   (let [profile-path (get-profile-path file)
         f (File. profile-path)]
     (if (.isFile f)
       (json/read-str (slurp profile-path))
-      (doall
-        (spit profile-path "{}")
-        (json/read-str "{}")))))
+      (do
+        (println "file" profile-path "does not exist")
+        (println "json-str =" json-str)
+        (spit profile-path json-str)
+        (json/read-str json-str)))))
 
 (defn- read-profiles
   "Read in the existing profiles file if it exists and convert to a Clojure
   data structure from JSON"
 ([]
- (-read-profiles "~/.pwgenrc"))
-([file]
- (-read-profiles file)) 
+ (-read-profiles "~/.pwgenrc" :json-str default-profile))
+([file & {:keys [json-str] :or {json-str default-profile}}]
+ (-read-profiles file :json-str default-profile))
 )
 
 (defn- add-profile
@@ -297,7 +301,7 @@
               ["-cp" "--create-profile" "Save the profile of this invocation with a given tag" 
                 :default "" :parse-fn #(String. %)]
               ["-up" "--use-profile" "Use the given profile in this invocation, overriding with other flags passed"
-                :default "" :parse-fn #(String. %)]
+                :default "standard" :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
         {:keys [use-profile]}
         (nth args 0)
