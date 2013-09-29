@@ -20,7 +20,7 @@
 (def special "~`!@#$%^&*()-_=+]}[{;:,<.>/?'|")
 (def special-nocaps "`-=;',./[]")
 (def right-special-nocaps ",./;'[]-=")
-(def all-chars (str alpha-lower alpha-upper numeric special))
+(def all-chars (str alphanumeric special))
 (def all-chars-with-space (str all-chars " "))
 (def all-noshift-chars (str alpha-lower numeric special-nocaps))
 (def character-classes ['alpha-lower 'right-alpha-lower 'left-alpha-lower 'alpha-upper
@@ -37,6 +37,13 @@
   ([target new offset] (string-splice target new offset (count new)))
   ([target new offset length]
      (str (subs target 0 offset) new (subs target (+ offset length)))))
+
+(defn re-pos [re s]
+  (loop [m (re-matcher re s)
+         res {}]
+    (if (.find m)
+      (recur m (assoc res (.start m) (.group m)))
+      res)))
 
 ;; Basic subcommands:
 ;;   - generate [profile] [options] [pairs]
@@ -177,9 +184,9 @@
        (#(str "[" %1 "]"))
        re-pattern))
 
-(defn rule-min-charset
-  [candidate min-chars charset]
-  (if (= 0 min-chars)
+(defn rule-charset-count
+  [candidate num-chars charset]
+  (if (= 0 num-chars)
     candidate
     (loop [curr-password candidate]
       (let [normalized-charset (normalize-charset charset)
@@ -188,24 +195,31 @@
         (println "current password candidate: " curr-password)
         (println "charset to match =" normalized-charset)
         (println "OK chars in candidate: " curr-password-chars)
-        (if (>= curr-password-chars min-chars)
+        (cond 
+          (= curr-password-chars num-chars)
           curr-password
-          (let [rand-num (str (rand-nth charset))
+          (> curr-password-chars num-chars)
+          (let [index-to-change (rand-nth (keys (re-pos normalized-charset curr-password)))
+                chars-to-use (.replaceAll all-chars (str normalized-charset) "")
+                rand-chr (str (rand-nth chars-to-use))]
+            (recur (str (string-splice curr-password rand-chr index-to-change))))
+          :else
+          (let [rand-chr (str (rand-nth charset))
                 pw-size (count curr-password)
                 rand-pos (rand pw-size)]
-            (recur (str (string-splice curr-password rand-num rand-pos)))))))))
+            (recur (str (string-splice curr-password rand-chr rand-pos)))))))))
 
-(defn rule-min-numbers 
-  [candidate min-numbers]
-  (rule-min-charset candidate min-numbers numeric))
+(defn rule-numbers 
+  [candidate count-numbers]
+  (rule-charset-count candidate count-numbers numeric))
 
-(defn rule-min-capitals
-  [candidate min-capitals]
-  (rule-min-charset candidate min-capitals alpha-upper))
+(defn rule-capitals
+  [candidate count-capitals]
+  (rule-charset-count candidate count-capitals alpha-upper))
 
-(defn rule-min-specials
-  [candidate min-specials special-charset]
-  (rule-min-charset candidate min-specials special-charset))
+(defn rule-specials
+  [candidate count-specials special-charset]
+  (rule-charset-count candidate count-specials special-charset))
 
 (defn regex-charset
   [candidate charset init-regex end-regex splice-pos]
@@ -257,9 +271,9 @@
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password
-                              (rule-min-numbers num-numbers)
-                              (rule-min-capitals num-capitals)
-                              (rule-min-specials num-specials resolved-special-charset)
+                              (rule-numbers num-numbers)
+                              (rule-capitals num-capitals)
+                              (rule-specials num-specials resolved-special-charset)
                               (rule-init-charset initial-charset)
                               (rule-ending-charset ending-charset))]
         (if (= curr-password new-candidate)
