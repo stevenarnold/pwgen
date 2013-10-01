@@ -1,7 +1,8 @@
 (ns pwgen.core
   (:gen-class)
   [:require [clojure.string :refer [split blank?]]]
-  [:require [clojure.tools.cli :refer [cli]]])
+  [:require [clojure.tools.cli :refer [cli]]]
+  (:use [slingshot.slingshot :only [throw+ try+]]))
 (require '[clojure.data.json :as json])
 (import '(java.io File))
 (load "record-defaults")
@@ -20,6 +21,7 @@
 (def special "~`!@#$%^&*()-_=+]}[{;:,<.>/?'|")
 (def special-nocaps "`-=;',./[]")
 (def right-special-nocaps ",./;'[]-=")
+(def right-nocaps (str right-alpha-lower right-numeric right-special-nocaps))
 (def all-chars (str alphanumeric special))
 (def all-chars-with-space (str all-chars " "))
 (def all-noshift-chars (str alpha-lower numeric special-nocaps))
@@ -253,14 +255,36 @@
     (deref (resolve (symbol (str "pwgen.core/" charset))))
     charset))
 
+;; Perform all the logic associated with calculating whether the requested
+;; rules are compatible and "sane".  Generate some initial values and 
+;; modify them, if needed, within the scope of the rules, so that a password
+;; can be generated.
+(defn generate-charset-counts
+  [min max min-numbers max-numbers min-capitals max-capitals min-special
+   max-special initial-charset ending-charset]
+   (let [num-numbers (select-count min-numbers max-numbers)
+        num-capitals (select-count min-capitals max-capitals)
+        num-specials (select-count min-special max-special)]
+     (if (< (+ 2 num-numbers num-capitals num-specials) max)
+       [num-numbers num-capitals num-specials]
+       ;; In the future, we can try harder to match passwords.  For example,
+       ;; we can look at the min-* values and use those if the above check
+       ;; failed, and we can consider the init and ending charsets.  For example,
+       ;; and ending-charset that allowed numeric values provides an optional
+       ;; slot for a numeric, if needed.  For now, if we fail the above test, 
+       ;; we raise an exception and print a notice to the user.
+       (throw+ {:type :invalid-rules}))))
+
 (defn generate [{:keys [min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
          special-charset initial-charset ending-charset 
          create-profile] :as args}]
   (let [resolved-special-charset (resolve-charset special-charset)
-        num-numbers (select-count min-numbers max-numbers)
-        num-capitals (select-count min-capitals max-capitals)
-        num-specials (select-count min-special max-special)
+        [num-numbers num-capitals num-specials] (generate-charset-counts
+                                                  min max min-numbers max-numbers
+                                                  min-capitals max-capitals min-special
+                                                  max-special initial-charset
+                                                  ending-charset)
         charset (str alphanumeric special-charset)
         candidate (generate-candidate min max memorable allow-spaces :charset charset)]
     (println "num-numbers: " num-numbers "; num-capitals: " num-capitals "; num-specials: " num-specials)
@@ -323,11 +347,14 @@
     (println "subcommand: " subcommand)
     (case subcommand
       "generate"
-      (if (blank? use-profile)
-        (set-clip! (generate (nth args 0)))
-        (let [profile (get (read-profiles) use-profile)
-              merged-options (merge-profile profile (nth args 0))]
-          (set-clip! (generate merged-options))))
+      (try+
+        (if (blank? use-profile)
+          (set-clip! (generate (nth args 0)))
+          (let [profile (get (read-profiles) use-profile)
+                merged-options (merge-profile profile (nth args 0))]
+            (set-clip! (generate merged-options))))
+        (catch Object _
+          (println "The rules provided are not possible given the allowed size of the password.")))
       "help"
       (println (slurp "README.md"))
       (println (str "Invalid subcommand: '" subcommand "'")))))

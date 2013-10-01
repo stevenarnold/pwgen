@@ -52,18 +52,18 @@ Basic subcommands:
       Require that a character in the given string be the initial character of the password.  Other standard charset names (such as 'alpha') may also be used.
     * `-ec <charset>` or `--ending-charset <charset>`
       Require that a character in the given string be the ending or final character of the password.  Other standard charset names (such as 'alphanumeric') may also be used.
+    * `-as` or `--allow-spaces`
+      Include the space character in the charset used to pick passwords, and do not remove spaces if a dictionary word contains one. However, a space cannot be the first or last character of a password. 
+    * `-cp <name>` or `--create-profile <name>`
+      Save a profile with this particular set of options.  If the profile already exists, the `--force` flag must be used to overwrite the profile, or the program will exit with an error.  The profile's options are defined as the profile identified by `--use-profile`, if applicable, overlaid with the command-line options provided.
+    * `-up <name>` or `--use-profile <name>`
+      Use the specified profile, overlaid with any command-line options that are provided.  If the profile does not exist, a warning is printed to STDERR.
 
 >   **--charset [tag] [names] &lt;charset&gt;**: Define a character set, optionally naming it with the given tag.  For example, your organization may limit special characters to underscore, dash and period, but allow alphanumeric characters.  If you wished to limit your password to these characters, you could use the syntax --charset alphanumeric '_-.'  If you define --special-charset, that value will be merged with the --charset value.
 <br /><br />
 >   **--weighting &lt;lower-value&gt;,&lt;upper-value&gt;,&lt;numeric-value&gt;,&lt;special-value&gt;**: A value representing the weighting of charsets in password selection.  This setting allows the user to adjust the preference for different charsets.  By default, the charsets are, in order, alpha-lower, alpha-upper, numeric, and special, and the default weighting for these character sets is 15,1,1,1.  If you use the --special-charset flag, your set of special characters will replace the default set.  You may, however, specify the names of charsets and their weights with a &lt;name&gt;:&lt;value&gt; syntax, separated by commas.  This includes charsets that you define with the --charset flag.  The &lt;name&gt;:&lt;value&gt; format may be included after the four default values, or the default values may be removed entirely and only the &lt;name&gt;:&lt;value&gt; syntax used.  If this flag is used, only charsets specified in the weighting will be used in selecting a password.  'min' and 'max' flags take precedence over weighting, if used together.  For example, if a user specifies '--weighting 10,2,0,0', ordinarily numeric digits and special characters would not be used.  But if '--min-numbers 3' was also specified, the resulting password would have at least three numeric digits, despite the weighting.
 <br /><br />
->   **--create-profile &lt;name&gt; or -cp**: Save this profile with this particular set of options.  If the profile already exists, it will be overwritten by the options given in this command.  The user must provide a password to use this option, either to encrypt a new password profile database, or decrypt the existing one for modification.  See --password.
-<br /><br />
 >   **--password or -p**: Use the given password to modify or use a profile.  Default is to ask the user interactively in a way that does not echo the password to the screen.
-<br /><br />
->   **--use-profile &lt;name&gt; or -up**: Use the specified profile to generate a password.  If additional options are given, they will supercede the profile's options.
-<br /><br />
->   **--allow-spaces or -as**: Include the space character in the charset used to pick passwords, and do not remove spaces if a dictionary word contains one.  However, a space cannot be the first or last character of a password.
 <br /><br />
 >   **--memorable &lt;pct&gt; or -r**: If an alphabetic (upper or lower) character is randomly chosen, there is a 'pct' chance that it will be replaced by a whole or partial dictionary word.  This will lengthen the candidate password by (most likely) more than one character.  If the --weighting flag was used, the characters in the selected word or word fragment will be subject to the weighting rules and may be randomly transformed into other character classes depending on the weighting rules.
 <br /><br />
