@@ -87,8 +87,8 @@
 (defn- merge-profile
   [profile params]
   (let [kprofile (into {} 
-                      (for [[k v] profile] 
-                        [(keyword k) v]))]
+                       (for [[k v] profile] 
+                         [(keyword k) v]))]
     (reduce (fn [memo pair]
               (let [[k v] pair]
                 (if (and (= v -1) (not (contains? kprofile k)))
@@ -174,35 +174,43 @@
           (recur (str curr-password (next-string memorable charset allow-spaces)))))))
 
 (def regex-char-esc-smap
-  (let [esc-chars "()*&^%$#![]{}.+-"]
+  (let [esc-chars "()*&^%$#![]{}.+-|'?/<>,"]
     (zipmap esc-chars
             (map #(str "\\" %) esc-chars))))
 
 (defn normalize-charset
   [charset]
-  (->> charset
-       (replace regex-char-esc-smap)
-       (reduce str)
-       (#(str "[" %1 "]"))
-       re-pattern))
+  (if (> (count charset) 0)
+    (->> charset
+         (replace regex-char-esc-smap)
+         (reduce str)
+         (#(str "[" %1 "]"))
+         re-pattern)
+    #""))
+
+(defn charset-diff
+  ;; Replace the regex matches described by 'subset' with nothing in
+  ;; the 'superset' string.
+  [superset subset]
+  (.replaceAll superset (str subset) ""))
 
 (defn rule-charset-count
   [candidate num-chars charset]
-  (if (= 0 num-chars)
+  (if (= 0 (count charset))
     candidate
     (loop [curr-password candidate]
       (let [normalized-charset (normalize-charset charset)
             curr-password-chars (count 
                                   (clojure.core/re-seq normalized-charset curr-password))]
-        (println "current password candidate: " curr-password)
-        (println "charset to match =" normalized-charset)
-        (println "OK chars in candidate: " curr-password-chars)
+        ; (println "current password candidate: " curr-password)
+        ; (println "charset to match =" normalized-charset)
+        ; (println "OK chars in candidate: " curr-password-chars)
         (cond 
           (= curr-password-chars num-chars)
           curr-password
           (> curr-password-chars num-chars)
           (let [index-to-change (rand-nth (keys (re-pos normalized-charset curr-password)))
-                chars-to-use (.replaceAll all-chars (str normalized-charset) "")
+                chars-to-use (charset-diff all-chars normalized-charset)
                 rand-chr (str (rand-nth chars-to-use))]
             (recur (str (string-splice curr-password rand-chr index-to-change))))
           :else
@@ -213,15 +221,22 @@
 
 (defn rule-numbers 
   [candidate count-numbers]
+  ; (println "number charset validation")
   (rule-charset-count candidate count-numbers numeric))
 
 (defn rule-capitals
   [candidate count-capitals]
+  ; (println "capital charset validation")
   (rule-charset-count candidate count-capitals alpha-upper))
 
 (defn rule-specials
   [candidate count-specials special-charset]
-  (rule-charset-count candidate count-specials special-charset))
+  ; (println "specials charset validation")
+  (let [escaped-charset (regex-char-esc-smap special-charset)
+        specials-candidate (rule-charset-count candidate count-specials escaped-charset)
+        chars-to-remove (charset-diff special (normalize-charset special-charset))]
+    ; (println "*** VALIDATING")
+    (rule-charset-count specials-candidate 0 chars-to-remove)))
 
 (defn regex-charset
   [candidate charset init-regex end-regex splice-pos]
@@ -229,14 +244,15 @@
                                             (normalize-charset charset) 
                                             end-regex))
         replacement (str (rand-nth charset))]
-    (println "Potential replacement =" replacement)
-    (println "Normalized charset =" normalized-charset)
+    ; (println "Potential replacement =" replacement)
+    ; (println "Normalized charset =" normalized-charset)
     (if (re-matches normalized-charset candidate)
       candidate
       (string-splice candidate replacement splice-pos))))
 
 (defn rule-init-charset
   [candidate charset]
+  ; (println "init charset validation")
   (regex-charset candidate charset "^" ".*$" 0))
 
 (defn rule-ending-charset
@@ -277,7 +293,7 @@
 
 (defn generate [{:keys [min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
-         special-charset initial-charset ending-charset 
+         charset special-charset initial-charset ending-charset 
          create-profile] :as args}]
   (let [resolved-special-charset (resolve-charset special-charset)
         [num-numbers num-capitals num-specials] (generate-charset-counts
@@ -285,7 +301,6 @@
                                                   min-capitals max-capitals min-special
                                                   max-special initial-charset
                                                   ending-charset)
-        charset (str alphanumeric special-charset)
         candidate (generate-candidate min max memorable allow-spaces :charset charset)]
     (println "num-numbers: " num-numbers "; num-capitals: " num-capitals "; num-specials: " num-specials)
     (println "charset = %[" charset "]")
@@ -300,9 +315,10 @@
                               (rule-specials num-specials resolved-special-charset)
                               (rule-init-charset initial-charset)
                               (rule-ending-charset ending-charset))]
+        (println "new candidate =" new-candidate ", curr-password =" curr-password)
         (if (= curr-password new-candidate)
           new-candidate
-          (if (= (mod (inc tries) 20) 0)
+          (if (= (mod (inc tries) 100) 0)
             (recur (generate-candidate min max memorable allow-spaces :charset charset) 
                    (inc tries))
             (recur new-candidate (inc tries))))))))
@@ -330,6 +346,12 @@
                 :default -1 :parse-fn #(Integer. %)]
               ["-s" "--allow-spaces" "Allow spaces in the password" :default -1 
                 :parse-fn #(Integer. %)]
+              ["-c" "--charset" "Define the base character set to use for generating passwords"
+                :default all-chars :parse-fn #(->> (-> % 
+                                                       (String.)
+                                                       (split #" +"))
+                                                   (map resolve-charset)
+                                                   (apply str))]
               ["-sc" "--special-charset" "Use the given special characters instead of the normal set" 
                 :default special :parse-fn #(resolve-charset (String. %))]
               ["-ic" "--initial-charset" "Use the given initial characters instead of the normal set" 
@@ -348,6 +370,7 @@
     (case subcommand
       "generate"
       (try+
+        (println "args =" (nth args 0))
         (if (blank? use-profile)
           (set-clip! (generate (nth args 0)))
           (let [profile (get (read-profiles) use-profile)

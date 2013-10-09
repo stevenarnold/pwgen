@@ -8,13 +8,16 @@
 
 (facts "about pwgen functions"
        (facts "about charset functions"
+              (fact "generate-candidate creates candidates that match the given charset"
+                    (re-matches #"^[abcdef]+$" 
+                                (generate-candidate 10 20 0 0 :charset "abcdef")) => truthy)
               (facts "about resolve-charset"
                      (fact "resolving a charset named after a character class gives us that class"
                            (resolve-charset "numeric") => numeric)
                      (fact "other charsets are treated literally"
                            (resolve-charset "lmnop") => "lmnop"))
               (fact "normalize-charset escapes strings and returns a regex pattern"
-                    (normalize-charset special) => #"[~`\!@\#\$\%\^\&\*\(\)\-_=\+\]\}\[\{;:,<\.>/?'|]")
+                    (normalize-charset special) => #"[~`\!@\#\$\%\^\&\*\(\)\-_=\+\]\}\[\{;:\,\<\.\>\/\?\'\|]")
               (facts "about rule-charset-count"
                      (fact "it ensures that the candidate string has at least the number of chars specified"
                            (let [new-candidate (rule-charset-count "some random text" 5 numeric)]
@@ -41,6 +44,41 @@
                            (and (>= num-numbers 1) (<= num-numbers 3)))) => truthy)
               (fact "passing in impossible parameters prints error notice"
                     (generate-charset-counts 10 10 5 5 5 5 5 5 alpha alphanumeric) => 
-                    	;; Would like to introspect into this object a little more
-                    	(throws Object))))
+                    ;; Would like to introspect into this object a little more
+                    (throws Object)))
+       (facts "about generate"
+              (facts "a simple invocation produces passwords"
+                     (let [example-args {:initial-charset alpha 
+                                         :max-numbers 4 :use-profile "standard" :allow-spaces 50 :min-special 2 
+                                         :max 30 :create-profile "" :max-capitals -1 :max-special -1 :memorable 95
+                                         :special-charset "" :min 20 
+                                         :charset "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()*:"
+                                         :min-numbers 1 :ending-charset alphanumeric
+                                         :min-capitals 1}
+                           example-args2 (assoc example-args :special-charset "()*:")
+                           character-pattern (re-pattern (str "^[" (normalize-charset (example-args :charset)) " ]+$"))
+                           generated-passwords (repeatedly 20
+                                                        #(let [new-pass (generate example-args2)]
+                                                           (re-matches character-pattern new-pass)))
+                           example-pass (nth generated-passwords 0)
+                           example-pass-length (count example-pass)]
+                       (fact "with the right length"
+                             (and (>= example-pass-length 20) (<= example-pass-length 30)) => truthy)
+                       (fact "consisting of valid characters"
+                             (not-any? nil? generated-passwords) => truthy)
+                       (fact "that are unique"
+                             (= (count (distinct generated-passwords)) (count generated-passwords)) => truthy)))
+              (fact "an invocation that used to fail the rules analysis now works"
+                    (let [example-args {:initial-charset alpha 
+                                         :use-profile "standard" :allow-spaces 50 :min-special 2 
+                                         :max 30 :create-profile "" :max-capitals -1 :max-special -1 :memorable 95
+                                         :special-charset special :min 20 
+                                         :charset all-chars :max-numbers 4
+                                         :min-numbers 1 :ending-charset alphanumeric
+                                         :min-capitals 1}
+                          password (generate example-args)
+                          pwlen (count password)]
+                      (and (>= pwlen 20) (<= pwlen 30)) => truthy))
+              )
+       )
 

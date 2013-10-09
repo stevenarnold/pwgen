@@ -30,6 +30,8 @@ Basic subcommands:
 
   * `generate [options] [pairs]`
     This will generate a password using the given options.  If a profile is specified, the options given on the command-line will override any options in that profile with the ones provided.  If the options include an assertion to save the profile, any provided pairs will be saved with it.  If specified in the options, the generated password will be pushed to the clipboard.
+    * `-c [<tag>] [<names>] [<charset>]` or `--charset [<tag>] [<names>] [<charset>]`
+      Defines the normal character set to be used when selecting characters for the password.  The default is `all-chars`.  A tag  may be specified, which can then be used as a character class name elsewhere in the invocation.  Note that the definition of `charset` does not affect the definition of  `special-charset`, `initial-charset`, or `ending-charset`, unless the tag defined with charset is used in these character classes, or unless the `--global` flag is used, which causes all the other character classes to use `charset` by default.
     * `-m <number>` or `--max <number>`
       The maximum number of characters allowed for the password.
     * `-n <number>` or `--min <number>`
@@ -58,6 +60,8 @@ Basic subcommands:
       Save a profile with this particular set of options.  If the profile already exists, the `--force` flag must be used to overwrite the profile, or the program will exit with an error.  The profile's options are defined as the profile identified by `--use-profile`, if applicable, overlaid with the command-line options provided.
     * `-up <name>` or `--use-profile <name>`
       Use the specified profile, overlaid with any command-line options that are provided.  If the profile does not exist, a warning is printed to STDERR.
+    * `-g` or `--global`
+      Use the character class defined with the `--charset` option for all character classes, including special, initial and ending character sets.  This flag is ignored unless `--charset` is defined.  Note that even if this flag is used, if one or more of the secondary character sets are defined, they will override this setting.  For example, if `--special-charset "-_."` is defined, the `initial-charset` and `ending-charset` classes will match the `charset` definition, but `special-charset` will be defined as per the command-line specification.
 
 >   **--charset [tag] [names] &lt;charset&gt;**: Define a character set, optionally naming it with the given tag.  For example, your organization may limit special characters to underscore, dash and period, but allow alphanumeric characters.  If you wished to limit your password to these characters, you could use the syntax --charset alphanumeric '_-.'  If you define --special-charset, that value will be merged with the --charset value.
 <br /><br />
