@@ -126,7 +126,7 @@
 
 (defn- add-profile
   "Add a new profile to the ~/.passwd-profiles file."
-  [profile & args]
+  [profile force & args]
   (let [[min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
          special-charset create-profile] args
@@ -135,8 +135,13 @@
                                           max-special allow-spaces special-charset
                                           memorable)
         all-profiles (pwgen.core/read-profiles)]
-    (spit (get-profile-path "~/.pwgenrc")
-          (json/write-str (assoc all-profiles profile profile-record)))))
+    (def add-item #(spit (get-profile-path "~/.pwgenrc")
+          (json/write-str (assoc all-profiles profile profile-record))))
+    (if (contains? all-profiles profile)
+      (if force 
+        (add-item))
+      (add-item))))
+      
 
 (defn rand-between [at-least at-most]
   (+ at-least (int (rand (- (inc at-most) at-least)))))
@@ -294,7 +299,7 @@
 (defn generate [{:keys [min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
          charset special-charset initial-charset ending-charset 
-         create-profile] :as args}]
+         create-profile force] :as args}]
   (let [resolved-special-charset (resolve-charset special-charset)
         [num-numbers num-capitals num-specials] (generate-charset-counts
                                                   min max min-numbers max-numbers
@@ -306,7 +311,7 @@
     (println "charset = %[" charset "]")
     (println "resolved-special-charset = %[" resolved-special-charset "]")
     (if (not (blank? create-profile))
-      (apply (partial add-profile create-profile) args))
+      (apply (partial add-profile create-profile force) args))
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password
@@ -360,6 +365,8 @@
                 :default alphanumeric :parse-fn #(resolve-charset (String. %))]
               ["-cp" "--create-profile" "Save the profile of this invocation with a given tag" 
                 :default "" :parse-fn #(String. %)]
+              ["-f" "--force" "Force --create-profile to overwrite an already-existing profile"
+                :flag false]
               ["-up" "--use-profile" "Use the given profile in this invocation, overriding with other flags passed"
                 :default "standard" :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])

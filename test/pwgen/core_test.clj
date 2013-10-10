@@ -80,5 +80,30 @@
                           pwlen (count password)]
                       (and (>= pwlen 20) (<= pwlen 30)) => truthy))
               )
+       (facts "about profile functions"
+              (future-fact "can add a profile"
+                           ;; Get profile
+                           ;; Add to profile
+                           ;; Get new profile
+                           ;; Expect equivalence
+                           true => truthy
+                           )
+              (future-fact "can override an existing profile with force flag"
+                           ;; Get profile
+                           ;; Add to profile
+                           ;; Get new profile
+                           ;; Override key w/force && different profile
+                           ;; Expect difference
+                           true => truthy
+                           )
+              (future-fact "can't override an existing profile without force flag"
+                           ;; Get profile
+                           ;; Add to profile
+                           ;; Get new profile
+                           ;; Override key w/o force && different profile
+                           ;; Expect equivalence
+                           true => truthy
+                           )
+              )
        )
 

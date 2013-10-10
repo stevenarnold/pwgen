@@ -8,11 +8,13 @@
 
 ## DESCRIPTION
 
-pwgen is a command-line tool for generating passwords according to different policies.  Using command-line options, many different policies can be used, including such options as password length, use of numeric digits, capital letters, and punctuation.  Users have the option of saving their passwords, along with metadata, by associating it with a tag, which can be retrieved with the entire tag or part of it.  Users can opt, when retrieving a password, to send it directly to their clipboard for pasting into an application, such as a web browser.
+pwgen is **not yet complete**.  Portions of the description that are not yet implemented are commented using _italics_ notation.
 
-Metadata can be tagged.  By default the information selected from a record is the password, but the user can optionally choose other data, and in fact the user is not required to store a password field at all.  This may be useful for storing information such as a credit card number, billing address, etc.
+pwgen is a command-line tool for generating passwords according to different policies.  Using command-line options, many different policies can be used, including such options as password length, use of numeric digits, capital letters, and punctuation.  _Users have the option of saving their passwords, along with metadata, by associating it with a tag, which can be retrieved with the entire tag or part of it._  Users can opt, when retrieving a password, to send it directly to their clipboard for pasting into an application, such as a web browser.
 
-User data is stored on disk using strong encryption.  The user may set the caching policy, up to and including immediate removal of the keystore password for each usage.
+_Metadata can be tagged.  By default the information selected from a record is the password, but the user can optionally choose other data, and in fact the user is not required to store a password field at all.  This may be useful for storing information such as a credit card number, billing address, etc._
+
+_User data is stored on disk using strong encryption.  The user may set the caching policy, up to and including immediate removal of the keystore password for each usage._
 
 ## INSTALLATION
 
@@ -26,7 +28,7 @@ pwgen requires a JVM version 1.6 or higher.  It can be run as follows:
 
 ## OPTIONS
 
-Basic subcommands:
+See documentation for built-in character classes below.  The basic subcommands for `pwgen` include:
 
   * `generate [options] [pairs]`
     This will generate a password using the given options.  If a profile is specified, the options given on the command-line will override any options in that profile with the ones provided.  If the options include an assertion to save the profile, any provided pairs will be saved with it.  If specified in the options, the generated password will be pushed to the clipboard.
@@ -58,44 +60,67 @@ Basic subcommands:
       Include the space character in the charset used to pick passwords, and do not remove spaces if a dictionary word contains one. However, a space cannot be the first or last character of a password. 
     * `-cp <name>` or `--create-profile <name>`
       Save a profile with this particular set of options.  If the profile already exists, the `--force` flag must be used to overwrite the profile, or the program will exit with an error.  The profile's options are defined as the profile identified by `--use-profile`, if applicable, overlaid with the command-line options provided.
+    * `-f` or `--force`
+      If `--create-profile` is specified, and a profile of that name already exists, the `--force` flag will silently replace it with the new profile being defined.  If a profile of the same name does not exist, the `--force` flag, if present, has no effect.
     * `-up <name>` or `--use-profile <name>`
       Use the specified profile, overlaid with any command-line options that are provided.  If the profile does not exist, a warning is printed to STDERR.
     * `-g` or `--global`
       Use the character class defined with the `--charset` option for all character classes, including special, initial and ending character sets.  This flag is ignored unless `--charset` is defined.  Note that even if this flag is used, if one or more of the secondary character sets are defined, they will override this setting.  For example, if `--special-charset "-_."` is defined, the `initial-charset` and `ending-charset` classes will match the `charset` definition, but `special-charset` will be defined as per the command-line specification.
+    * `-r` or `--memorable <pct>`
+      If an alphabetic (upper or lower) character is randomly chosen, there is a 'pct' chance that it will be replaced by a whole or partial dictionary word.  This will lengthen the candidate password by (most likely) more than one character.  This word selection may be mutated by the other rules; for example, a requirement to include four digits in the password may cause some of the characters in the word to be changed to digits.
 
->   **--charset [tag] [names] &lt;charset&gt;**: Define a character set, optionally naming it with the given tag.  For example, your organization may limit special characters to underscore, dash and period, but allow alphanumeric characters.  If you wished to limit your password to these characters, you could use the syntax --charset alphanumeric '_-.'  If you define --special-charset, that value will be merged with the --charset value.
-<br /><br />
->   **--weighting &lt;lower-value&gt;,&lt;upper-value&gt;,&lt;numeric-value&gt;,&lt;special-value&gt;**: A value representing the weighting of charsets in password selection.  This setting allows the user to adjust the preference for different charsets.  By default, the charsets are, in order, alpha-lower, alpha-upper, numeric, and special, and the default weighting for these character sets is 15,1,1,1.  If you use the --special-charset flag, your set of special characters will replace the default set.  You may, however, specify the names of charsets and their weights with a &lt;name&gt;:&lt;value&gt; syntax, separated by commas.  This includes charsets that you define with the --charset flag.  The &lt;name&gt;:&lt;value&gt; format may be included after the four default values, or the default values may be removed entirely and only the &lt;name&gt;:&lt;value&gt; syntax used.  If this flag is used, only charsets specified in the weighting will be used in selecting a password.  'min' and 'max' flags take precedence over weighting, if used together.  For example, if a user specifies '--weighting 10,2,0,0', ordinarily numeric digits and special characters would not be used.  But if '--min-numbers 3' was also specified, the resulting password would have at least three numeric digits, despite the weighting.
-<br /><br />
+##Possible Future 'generate' Flags##
 >   **--password or -p**: Use the given password to modify or use a profile.  Default is to ask the user interactively in a way that does not echo the password to the screen.
-<br /><br />
->   **--memorable &lt;pct&gt; or -r**: If an alphabetic (upper or lower) character is randomly chosen, there is a 'pct' chance that it will be replaced by a whole or partial dictionary word.  This will lengthen the candidate password by (most likely) more than one character.  If the --weighting flag was used, the characters in the selected word or word fragment will be subject to the weighting rules and may be randomly transformed into other character classes depending on the weighting rules.
 <br /><br />
 >   **--dict or -d**: Use the given file as the dictionary for memorable passwords, one word per line.  This option has no effect if the '--memorable' flag is not used.
     
-- fetch [options] &lt;profile-tag&gt;[:meta-tag]: This will fetch either the password for the given profile, or the data associated with the given meta-tag in the profile.  If the password for the profile is not cached, the user will be asked for the password.
+- *fetch [options] &lt;profile-tag&gt;[:meta-tag]: This will fetch either the password for the given profile, or the data associated with the given meta-tag in the profile.  If the password for the profile is not cached, the user will be asked for the password.*
 
-(defrecord+defaults PasswordPreferences
-  [at-least                15        ;; Password must be at least this long
-   at-most                 25        ;; And no longer than this
-   lower-alpha-weight      20        ;; Weighting for lowercase characters
-   upper-alpha-weight       4        ;; Weighting for uppercase characters
-   avoid-shift-pct         10        ;; Percentage chance we'll use a shifted char
-                                     ;;     if one is picked
-   use-at-least-upper       1        ;; Use at least this many uppercase chars.
-                                     ;;     All use-at-least values must be < at-least
-   numeric-weight           4        ;; Weighting for numeric characters
-   use-at-least-numeric     1        ;; Use at least this many numeric chars
-   special-weight           0        ;; Weighting for special chars
-   use-at-least-special     0        ;; Use at least this many special characters
-   allow-spaces             false    ;; Allow spaces to be in password
-   make-memorable-pct       0]       ;; Percentage chance we'll use a dictionary 
-                                     ;;     word when an alpha char would have been
-                                     ;;     picked
+## Character Classes
+
+The following character classes are supported out-of-the-box by `pwgen`.  You may craft other ones at the command-line using the `--charset` option.  Character classes are considered "joined" if they are included together in square brackets [].  Any of these can be used directly at the command line when you invoke pwgen.
+
+>    **alpha-lower** => "abcdefghijklmnopqrstuvwxyz"
+<br />
+>    **right-alpha-lower** => "hynmjuiklop"
+<br />
+>    **left-alpha-lower** => "qazwsxedcrfvtgb"
+<br />
+>    **alpha-upper** => "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+<br />
+>    **alpha** => [alpha-lower alpha-upper]
+<br />
+>    **numeric** => "0123456789"
+<br />
+>    **left-numeric** => "09876"
+<br />
+>    **right-numeric** => "12345"
+<br />
+>    **alphanumeric** => [alpha numeric]
+<br />
+>    **special** => "~\`!@#$%^&*()-_=+]}[{;:,<.>/?'|"
+<br />
+>    **special-nocaps** => "`-=;',./[]"
+<br />
+>    **right-special-nocaps** => ",./;'[]-="
+<br />
+>    **right-nocaps** => [right-alpha-lower right-numeric right-special-nocaps]
+<br />
+>    **all-chars** => [alphanumeric special]
+<br />
+>    **all-chars-with-space** => [all-chars " "]
+<br />
+>    **all-noshift-chars** => [alpha-lower numeric special-nocaps]
 
 ## Examples
 
-...
+>   $ *pwgen generate --max 30 --min 20 --memorable 95 -nc 1 -ns 2 -md 4 -nd 1 --allow-spaces 50 -sc special*
+<br /><br/>
+>   Generate a password of between 20 and 30 characters inclusive, with at least one capital letter, two special characters (symbol), at least one and no more than four digits, using the 'special' character set for specials, using dictionary words with 95 percent odds, and permitting spaces.  Example output: "D3T4oratieli3Su(instTn-eerac"
+<br /><br/>
+>   $ *pwgen generate --use-profile standard*
+<br /><br/>
+>   Generate a password using the standard profile.  The standard profile is a profile generated by pwgen by default when the program is first run.  It represents a "reasonable" set of rules that will work with most password algorithms.
 
 ### Bugs
 
