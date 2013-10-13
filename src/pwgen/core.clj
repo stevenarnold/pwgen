@@ -184,14 +184,14 @@
             (map #(str "\\" %) esc-chars))))
 
 (defn normalize-charset
-  [charset]
-  (if (> (count charset) 0)
-    (->> charset
-         (replace regex-char-esc-smap)
-         (reduce str)
-         (#(str "[" %1 "]"))
-         re-pattern)
-    #""))
+  [charset & {:keys [as-string] :or {as-string false}}]
+  (let [normalized-charset (if (> (count charset) 0)
+                            (->> charset
+                                 (replace regex-char-esc-smap)
+                                 (reduce str)
+                                 (#(str "[" %1 "]")))
+                            "")]
+    (if as-string normalized-charset (re-pattern normalized-charset))))
 
 (defn charset-diff
   ;; Replace the regex matches described by 'subset' with nothing in
@@ -201,15 +201,18 @@
 
 (defn rule-charset-count
   [candidate num-chars charset]
+  (println "num-chars =" num-chars)
+  (println "charset =" charset)
   (if (= 0 (count charset))
     candidate
     (loop [curr-password candidate]
       (let [normalized-charset (normalize-charset charset)
             curr-password-chars (count 
                                   (clojure.core/re-seq normalized-charset curr-password))]
-        ; (println "current password candidate: " curr-password)
-        ; (println "charset to match =" normalized-charset)
-        ; (println "OK chars in candidate: " curr-password-chars)
+        (println "current password candidate: " curr-password)
+        (println "charset to match =" normalized-charset)
+        (println "OK chars in candidate: " curr-password-chars)
+        (println "need exactly" num-chars "in candidate")
         (cond 
           (= curr-password-chars num-chars)
           curr-password
@@ -236,11 +239,13 @@
 
 (defn rule-specials
   [candidate count-specials special-charset]
-  ; (println "specials charset validation")
-  (let [escaped-charset (regex-char-esc-smap special-charset)
-        specials-candidate (rule-charset-count candidate count-specials escaped-charset)
+  (println "count of special chars =" count-specials)
+  (let [specials-candidate (rule-charset-count candidate count-specials special-charset)
         chars-to-remove (charset-diff special (normalize-charset special-charset))]
     ; (println "*** VALIDATING")
+    (println "specials-candidate =" specials-candidate)
+    (println "special-charset =" special-charset)
+    (println "chars-to-remove =" chars-to-remove)
     (rule-charset-count specials-candidate 0 chars-to-remove)))
 
 (defn regex-charset
@@ -266,6 +271,7 @@
 
 (defn select-count
   [minimum maximum]
+  (println "minimum =" minimum ", maximum =" maximum)
   (if (< maximum minimum) ;; includes the case of maximum = -1
     minimum
     (rand-between minimum maximum)))
@@ -283,18 +289,20 @@
 (defn generate-charset-counts
   [min max min-numbers max-numbers min-capitals max-capitals min-special
    max-special initial-charset ending-charset]
-   (let [num-numbers (select-count min-numbers max-numbers)
+  (println "min-special =" min-special ", max-special =" max-special)
+  (let [num-numbers (select-count min-numbers max-numbers)
         num-capitals (select-count min-capitals max-capitals)
         num-specials (select-count min-special max-special)]
-     (if (< (+ 2 num-numbers num-capitals num-specials) max)
-       [num-numbers num-capitals num-specials]
-       ;; In the future, we can try harder to match passwords.  For example,
-       ;; we can look at the min-* values and use those if the above check
-       ;; failed, and we can consider the init and ending charsets.  For example,
-       ;; and ending-charset that allowed numeric values provides an optional
-       ;; slot for a numeric, if needed.  For now, if we fail the above test, 
-       ;; we raise an exception and print a notice to the user.
-       (throw+ {:type :invalid-rules}))))
+    (println "num-specials =", num-specials)
+    (if (< (+ 2 num-numbers num-capitals num-specials) max)
+      [num-numbers num-capitals num-specials]
+      ;; In the future, we can try harder to match passwords.  For example,
+      ;; we can look at the min-* values and use those if the above check
+      ;; failed, and we can consider the init and ending charsets.  For example,
+      ;; and ending-charset that allowed numeric values provides an optional
+      ;; slot for a numeric, if needed.  For now, if we fail the above test, 
+      ;; we raise an exception and print a notice to the user.
+      (throw+ {:type :invalid-rules}))))
 
 (defn generate [{:keys [min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special

@@ -45,11 +45,12 @@
               (fact "passing in impossible parameters prints error notice"
                     (generate-charset-counts 10 10 5 5 5 5 5 5 alpha alphanumeric) => 
                     ;; Would like to introspect into this object a little more
-                    (throws Object)))
+                    (throws Object))
+              )
        (facts "about generate"
               (facts "a simple invocation produces passwords"
                      (let [example-args {:initial-charset alpha 
-                                         :max-numbers 4 :use-profile "standard" :allow-spaces 50 :min-special 2 
+                                         :max-numbers 4 :use-profile "standard" :allow-spaces 50 :min-special 6 
                                          :max 30 :create-profile "" :max-capitals -1 :max-special -1 :memorable 95
                                          :special-charset "" :min 20 
                                          :charset "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()*:"
@@ -67,7 +68,16 @@
                        (fact "consisting of valid characters"
                              (not-any? nil? generated-passwords) => truthy)
                        (fact "that are unique"
-                             (= (count (distinct generated-passwords)) (count generated-passwords)) => truthy)))
+                             (= (count (distinct generated-passwords)) (count generated-passwords)) => truthy)
+                       (println "about to test having the right number of symbols")
+                       (fact "always have the right number of symbols"
+                             (let [specials-counts (map #(- (count %) (count (charset-diff % (normalize-charset 
+                                                                                               (example-args2 :special-charset))))) 
+                                                        generated-passwords)]
+                               (println "specials-counts = " specials-counts)
+                               (every? #(>= % 6) specials-counts)) => truthy)
+                       )
+                     )
               (fact "an invocation that used to fail the rules analysis now works"
                     (let [example-args {:initial-charset alpha 
                                          :use-profile "standard" :allow-spaces 50 :min-special 2 
