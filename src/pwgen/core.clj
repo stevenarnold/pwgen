@@ -5,7 +5,7 @@
   (:use [slingshot.slingshot :only [throw+ try+]]))
 (require '[clojure.data.json :as json])
 (import '(java.io File))
-(load "record-defaults")
+(load "helper-macros")
 (load "clip-utils")
 
 
@@ -72,15 +72,23 @@
                                      ;;     picked
   )
 
-(defn- get-profile-path
-  [file]
+(defn-memo get-profile-path
+  ([]
+   (do
+     ; (println "no path = " (get-profile-path "~/.pwgenrc"))
+     (get-profile-path "~/.pwgenrc")))
+  ([file]
   (let [homedir (System/getProperty (str "user.home"))]
     (if (.startsWith file "~")
-      (str homedir (subs file 1))
-      file)))
+      (do
+        ; (println (str "with file and ~ =" homedir (subs file 1)))
+        (str homedir (subs file 1)))
+      (do
+        ; (println "with file and no ~ =" file)
+        file)))))
 
 (defn- save-profiles
-  "Create a new ~/.passwd-profiles file if it doesn't exist
+  "Create a new ~/.pwgenrc file if it doesn't exist
   and populate it with our profiles."
   [profiles])
 
@@ -110,8 +118,8 @@
     (if (.isFile f)
       (json/read-str (slurp profile-path))
       (do
-        (println "file" profile-path "does not exist")
-        (println "json-str =" json-str)
+        ; (println "file" profile-path "does not exist")
+        ; (println "json-str =" json-str)
         (spit profile-path json-str)
         (json/read-str json-str)))))
 
@@ -120,12 +128,12 @@
   data structure from JSON"
 ([]
  (-read-profiles "~/.pwgenrc" :json-str default-profile))
-([file & {:keys [json-str] :or {json-str default-profile}}]
+([file & {:keys [json-str] :or {:json-str default-profile}}]
  (-read-profiles file :json-str default-profile))
 )
 
 (defn- add-profile
-  "Add a new profile to the ~/.passwd-profiles file."
+  "Add a new profile to the ~/.pwgenrc file."
   [profile force & args]
   (let [[min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
@@ -135,7 +143,7 @@
                                           max-special allow-spaces special-charset
                                           memorable)
         all-profiles (pwgen.core/read-profiles)]
-    (def add-item #(spit (get-profile-path "~/.pwgenrc")
+    (defn add-item [] #(spit (get-profile-path)
           (json/write-str (assoc all-profiles profile profile-record))))
     (if (contains? all-profiles profile)
       (if force 
@@ -201,18 +209,18 @@
 
 (defn rule-charset-count
   [candidate num-chars charset]
-  (println "num-chars =" num-chars)
-  (println "charset =" charset)
+  ; (println "num-chars =" num-chars)
+  ; (println "charset =" charset)
   (if (= 0 (count charset))
     candidate
     (loop [curr-password candidate]
       (let [normalized-charset (normalize-charset charset)
             curr-password-chars (count 
                                   (clojure.core/re-seq normalized-charset curr-password))]
-        (println "current password candidate: " curr-password)
-        (println "charset to match =" normalized-charset)
-        (println "OK chars in candidate: " curr-password-chars)
-        (println "need exactly" num-chars "in candidate")
+        ; (println "current password candidate: " curr-password)
+        ; (println "charset to match =" normalized-charset)
+        ; (println "OK chars in candidate: " curr-password-chars)
+        ; (println "need exactly" num-chars "in candidate")
         (cond 
           (= curr-password-chars num-chars)
           curr-password
@@ -239,13 +247,13 @@
 
 (defn rule-specials
   [candidate count-specials special-charset]
-  (println "count of special chars =" count-specials)
+  ; (println "count of special chars =" count-specials)
   (let [specials-candidate (rule-charset-count candidate count-specials special-charset)
         chars-to-remove (charset-diff special (normalize-charset special-charset))]
     ; (println "*** VALIDATING")
-    (println "specials-candidate =" specials-candidate)
-    (println "special-charset =" special-charset)
-    (println "chars-to-remove =" chars-to-remove)
+    ; (println "specials-candidate =" specials-candidate)
+    ; (println "special-charset =" special-charset)
+    ; (println "chars-to-remove =" chars-to-remove)
     (rule-charset-count specials-candidate 0 chars-to-remove)))
 
 (defn regex-charset
@@ -271,7 +279,7 @@
 
 (defn select-count
   [minimum maximum]
-  (println "minimum =" minimum ", maximum =" maximum)
+  ; (println "minimum =" minimum ", maximum =" maximum)
   (if (< maximum minimum) ;; includes the case of maximum = -1
     minimum
     (rand-between minimum maximum)))
@@ -289,25 +297,28 @@
 (defn generate-charset-counts
   [min max min-numbers max-numbers min-capitals max-capitals min-special
    max-special initial-charset ending-charset]
-  (println "min-special =" min-special ", max-special =" max-special)
+  ; (println "min-special =" min-special ", max-special =" max-special)
   (let [num-numbers (select-count min-numbers max-numbers)
         num-capitals (select-count min-capitals max-capitals)
         num-specials (select-count min-special max-special)]
-    (println "num-specials =", num-specials)
-    (if (< (+ 2 num-numbers num-capitals num-specials) max)
-      [num-numbers num-capitals num-specials]
+    ; (println "num-specials =", num-specials)
+    (if (> (+ 2 num-numbers num-capitals num-specials) max)
       ;; In the future, we can try harder to match passwords.  For example,
       ;; we can look at the min-* values and use those if the above check
       ;; failed, and we can consider the init and ending charsets.  For example,
       ;; and ending-charset that allowed numeric values provides an optional
       ;; slot for a numeric, if needed.  For now, if we fail the above test, 
       ;; we raise an exception and print a notice to the user.
-      (throw+ {:type :invalid-rules}))))
+      (throw+ {:type :invalid-rules})
+      (doall
+        ; (println (str num-numbers ", " num-capitals ", " num-specials ", " max))
+        [num-numbers num-capitals num-specials]))))
 
 (defn generate [{:keys [min max memorable allow-spaces min-numbers max-numbers
          min-capitals max-capitals min-special max-special
          charset special-charset initial-charset ending-charset 
          create-profile force] :as args}]
+  ; (println "min =" min ", max =" max)
   (let [resolved-special-charset (resolve-charset special-charset)
         [num-numbers num-capitals num-specials] (generate-charset-counts
                                                   min max min-numbers max-numbers
@@ -315,9 +326,9 @@
                                                   max-special initial-charset
                                                   ending-charset)
         candidate (generate-candidate min max memorable allow-spaces :charset charset)]
-    (println "num-numbers: " num-numbers "; num-capitals: " num-capitals "; num-specials: " num-specials)
-    (println "charset = %[" charset "]")
-    (println "resolved-special-charset = %[" resolved-special-charset "]")
+    ; (println "num-numbers: " num-numbers "; num-capitals: " num-capitals "; num-specials: " num-specials)
+    ; (println "charset = %[" charset "]")
+    ; (println "resolved-special-charset = %[" resolved-special-charset "]")
     (if (not (blank? create-profile))
       (apply (partial add-profile create-profile force) args))
     (loop [curr-password candidate
@@ -328,7 +339,7 @@
                               (rule-specials num-specials resolved-special-charset)
                               (rule-init-charset initial-charset)
                               (rule-ending-charset ending-charset))]
-        (println "new candidate =" new-candidate ", curr-password =" curr-password)
+        ; (println "new candidate =" new-candidate ", curr-password =" curr-password)
         (if (= curr-password new-candidate)
           new-candidate
           (if (= (mod (inc tries) 100) 0)
@@ -338,6 +349,7 @@
 
 (defn -main
   [& args]
+  ; (println "args =" args)
   ;; work around dangerous default behaviour in Clojure
   (alter-var-root #'*read-eval* (constantly false))
   ;; Parse command-line options and create a PasswordPreferences record
@@ -378,21 +390,25 @@
               ["-up" "--use-profile" "Use the given profile in this invocation, overriding with other flags passed"
                 :default "standard" :parse-fn #(String. %)]
               ["-h" "--memorable" "Use English words" :default 100 :parse-fn #(Integer. %)])
-        {:keys [use-profile]}
-        (nth args 0)
-        subcommand (nth (nth args 1) 0)]
-    (println "subcommand: " subcommand)
+        {:keys [use-profile]} (nth args 0)
+        subcommand (try 
+                     (nth (nth args 1) 0)
+                     (catch java.lang.IndexOutOfBoundsException e
+                       "generate"))]
+    ; (println "subcommand: " subcommand)
     (case subcommand
       "generate"
-      (try+
-        (println "args =" (nth args 0))
-        (if (blank? use-profile)
-          (set-clip! (generate (nth args 0)))
-          (let [profile (get (read-profiles) use-profile)
-                merged-options (merge-profile profile (nth args 0))]
-            (set-clip! (generate merged-options))))
-        (catch Object _
-          (println "The rules provided are not possible given the allowed size of the password.")))
+        (do
+        ; (try+
+            (if (blank? use-profile)
+              (set-clip! (generate (nth args 0)))
+              (let [profile (get (read-profiles) use-profile)
+                    merged-options (merge-profile profile (nth args 0))
+                    result (generate merged-options)]
+                (set-clip! result)
+                (println result))))
+          ; (catch Object o
+            ; (println "The rules provided are not possible given the allowed size of the password: " o))
       "help"
-      (println (slurp "README.md"))
+      (println (slurp (clojure.java.io/resource "README.md")))
       (println (str "Invalid subcommand: '" subcommand "'")))))

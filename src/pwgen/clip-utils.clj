@@ -25,10 +25,10 @@ true (. contents getTransferData java.awt.datatransfer.DataFlavor/stringFlavor))
   (if input-string
     (let [clipboard (get-sys-clip)]
       (if clipboard
-(do
-(let [selection (java.awt.datatransfer.StringSelection. input-string)]
-(. clipboard setContents selection nil))
-input-string)))))
+        (do
+          (let [selection (java.awt.datatransfer.StringSelection. input-string)]
+            (. clipboard setContents selection nil))
+          input-string)))))
 
 (defn read-clip
   "Used to read an s-expression in the clipboard."

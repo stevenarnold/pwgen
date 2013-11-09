@@ -1,6 +1,10 @@
 (ns pwgen.core_test
   (:use midje.sweet)
-  (:use [pwgen.core]))
+  (:use [midje.util :only [testable-privates]])
+  (:use [pwgen.core])
+  (:require [me.raynes.fs :refer [temp-dir copy file]]))
+
+(testable-privates pwgen.core read-profiles add-profile)
 
 (facts "about invoking pwgen"
        (fact "we can invoke pwgen with only the 'generate' subcommand"
@@ -92,12 +96,22 @@
               )
        (facts "about profile functions"
               (future-fact "can add a profile"
-                           ;; Get profile
-                           ;; Add to profile
-                           ;; Get new profile
-                           ;; Expect equivalence
-                           true => truthy
-                           )
+                    (let [test-dir (temp-dir "test-")
+                          profile-file (str test-dir "sample-profile")]
+                      ;; Setup
+                      (copy (file "test/pwgen/sample-profile") profile-file)
+                      ;; Get the profile
+                      (let [profiles (read-profiles profile-file)
+                            sp (profiles "standard")]
+                        ;; Modify the profile
+                        (add-profile "standard" true 10 (sp "max") (sp "make-memorable-pct") (sp "min-capitals") (sp "max-capitals")
+                                     (sp "min-numeric") (sp "max-numeric") (sp "min-special") (sp "max-special")
+                                     (sp "allow-spaces") (sp "special-charset") true)
+                        ;; Read the profile back and expect the change to have taken place
+                        (let [profiles (read-profiles profile-file)]
+                          (println ((profiles "standard") "min"))
+                          (= ((profiles "standard") "min") 10)))) => truthy
+                    )
               (future-fact "can override an existing profile with force flag"
                            ;; Get profile
                            ;; Add to profile

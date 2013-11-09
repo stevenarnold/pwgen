@@ -1,0 +1,8 @@
+#!/bin/bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+rm -f $DIR/pwgen.jar
+uudecode $0
+mv pwgen.jar $DIR/pwgen.jar
+java -jar $DIR/pwgen.jar $@
+rm -f $DIR/pwgen.jar
+exit

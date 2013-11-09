@@ -1,0 +1,3 @@
+{"standard":{"min":20,"max":30,"min-capitals":1,"max-capitals":4,
+                     "min-numeric":1,"max-numeric":4,"min-special":1,"max-special":4,
+                     "allow-spaces":0,"special-charset":"special","make-memorable-pct":100}}
