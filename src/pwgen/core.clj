@@ -1,6 +1,7 @@
 (ns pwgen.core
   (:gen-class)
-  [:require [clojure.string :refer [split blank?]]]
+  [:require [clojure.core :refer [re-pattern re-seq]]]
+  [:require [clojure.string :refer [split blank? upper-case]]]
   [:require [clojure.tools.cli :refer [cli]]]
   (:use [slingshot.slingshot :only [throw+ try+]]))
 (require '[clojure.data.json :as json])
@@ -32,7 +33,7 @@
 (def dict "wordlist.txt")
 (def words (split (slurp (clojure.java.io/resource dict)) #"[\r\n]+"))
 (def default-profile "{\"standard\":{\"min\":20,\"max\":30,\"min-capitals\":1,\"max-capitals\":4,
-                     \"min-numeric\":1,\"max-numeric\":4,\"min-special\":1,\"max-special\":4,
+                     \"min-numbers\":1,\"max-numbers\":4,\"min-special\":1,\"max-special\":4,
                      \"allow-spaces\":0,\"special-charset\":\"special\",\"make-memorable-pct\":100}}")
 
 (defn string-splice
@@ -208,7 +209,7 @@
   (.replaceAll superset (str subset) ""))
 
 (defn rule-charset-count
-  [candidate num-chars charset]
+  [candidate num-chars charset & {:keys [rule-fn] :or {rule-fn false}}]
   ; (println "num-chars =" num-chars)
   ; (println "charset =" charset)
   (if (= 0 (count charset))
@@ -216,7 +217,12 @@
     (loop [curr-password candidate]
       (let [normalized-charset (normalize-charset charset)
             curr-password-chars (count 
-                                  (clojure.core/re-seq normalized-charset curr-password))]
+                                  (clojure.core/re-seq normalized-charset curr-password))
+            default-charset-adder (fn [charset curr-password] 
+                                    (let [rand-chr (str (rand-nth charset))
+                                          pw-size (count curr-password)
+                                          rand-pos (rand pw-size)]
+                                      (str (string-splice curr-password rand-chr rand-pos))))]
         ; (println "current password candidate: " curr-password)
         ; (println "charset to match =" normalized-charset)
         ; (println "OK chars in candidate: " curr-password-chars)
@@ -230,10 +236,9 @@
                 rand-chr (str (rand-nth chars-to-use))]
             (recur (str (string-splice curr-password rand-chr index-to-change))))
           :else
-          (let [rand-chr (str (rand-nth charset))
-                pw-size (count curr-password)
-                rand-pos (rand pw-size)]
-            (recur (str (string-splice curr-password rand-chr rand-pos)))))))))
+          (if rule-fn
+            (recur (rule-fn charset curr-password))
+            (recur (default-charset-adder charset curr-password))))))))
 
 (defn rule-numbers 
   [candidate count-numbers]
@@ -243,7 +248,14 @@
 (defn rule-capitals
   [candidate count-capitals]
   ; (println "capital charset validation")
-  (rule-charset-count candidate count-capitals alpha-upper))
+  (rule-charset-count candidate count-capitals alpha-upper 
+                      :rule-fn (fn [charset curr-password] 
+                                 (let [rand-chr (str (rand-nth charset))
+                                       rand-pos (rand (count curr-password))
+                                       selected-char (nth curr-password rand-pos)]
+                                   (if (clojure.core/re-seq (re-pattern (str selected-char)) alpha)
+                                     (str (string-splice curr-password (upper-case selected-char) rand-pos))
+                                     (str (string-splice curr-password rand-chr rand-pos)))))))
 
 (defn rule-specials
   [candidate count-specials special-charset]
