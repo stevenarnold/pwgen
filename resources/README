@@ -1,0 +1,243 @@
+PWGEN()                                                              PWGEN()
+
+
+
+NNAAMMEE
+       ppwwggeenn − a utility for generating passwords based on different policies
+
+SSYYNNPPOOSSIISS
+       ppwwggeenn [[ggeenneerraattee||ffeettcchh]] <<ooppttiioonnss>>
+
+DDEESSCCRRIIPPTTIIOONN
+       pwgen is nnoott yyeett ccoommpplleettee. Portions of the description that are not yet
+       implemented are commented using _i_t_a_l_i_c_s notation.
+
+       pwgen is a command−line tool for generating passwords according to dif‐
+       ferent  policies.  Using  command−line options, many different policies
+       can be used, including such options as password length, use of  numeric
+       digits, capital letters, and punctuation. _U_s_e_r_s _h_a_v_e _t_h_e _o_p_t_i_o_n _o_f _s_a_v_‐
+       _i_n_g _t_h_e_i_r _p_a_s_s_w_o_r_d_s_, _a_l_o_n_g _w_i_t_h _m_e_t_a_d_a_t_a_, _b_y _a_s_s_o_c_i_a_t_i_n_g _i_t _w_i_t_h _a _t_a_g_,
+       _w_h_i_c_h  _c_a_n  _b_e  _r_e_t_r_i_e_v_e_d  _w_i_t_h _t_h_e _e_n_t_i_r_e _t_a_g _o_r _p_a_r_t _o_f _i_t_. Users can
+       opt, when retrieving a password, to send it directly to their clipboard
+       for pasting into an application, such as a web browser.
+
+       _M_e_t_a_d_a_t_a  _c_a_n  _b_e  _t_a_g_g_e_d_.  _B_y  _d_e_f_a_u_l_t _t_h_e _i_n_f_o_r_m_a_t_i_o_n _s_e_l_e_c_t_e_d _f_r_o_m _a
+       _r_e_c_o_r_d _i_s _t_h_e _p_a_s_s_w_o_r_d_, _b_u_t _t_h_e _u_s_e_r _c_a_n _o_p_t_i_o_n_a_l_l_y _c_h_o_o_s_e _o_t_h_e_r  _d_a_t_a_,
+       _a_n_d  _i_n _f_a_c_t _t_h_e _u_s_e_r _i_s _n_o_t _r_e_q_u_i_r_e_d _t_o _s_t_o_r_e _a _p_a_s_s_w_o_r_d _f_i_e_l_d _a_t _a_l_l_.
+       _T_h_i_s _m_a_y _b_e _u_s_e_f_u_l _f_o_r _s_t_o_r_i_n_g _i_n_f_o_r_m_a_t_i_o_n _s_u_c_h _a_s _a _c_r_e_d_i_t  _c_a_r_d  _n_u_m_‐
+       _b_e_r_, _b_i_l_l_i_n_g _a_d_d_r_e_s_s_, _e_t_c_.
+
+       _U_s_e_r  _d_a_t_a  _i_s _s_t_o_r_e_d _o_n _d_i_s_k _u_s_i_n_g _s_t_r_o_n_g _e_n_c_r_y_p_t_i_o_n_. _T_h_e _u_s_e_r _m_a_y _s_e_t
+       _t_h_e _c_a_c_h_i_n_g _p_o_l_i_c_y_, _u_p _t_o _a_n_d _i_n_c_l_u_d_i_n_g _i_m_m_e_d_i_a_t_e _r_e_m_o_v_a_l _o_f  _t_h_e  _k_e_y_‐
+       _s_t_o_r_e _p_a_s_s_w_o_r_d _f_o_r _e_a_c_h _u_s_a_g_e_.
+
+IINNSSTTAALLLLAATTIIOONN
+       Download from https://github.com/stevenarnold/pwgen.
+
+EENNVVIIRROONNMMEENNTT
+       pwgen requires a JVM version 1.6 or higher. It can be run as follows:
+
+       $$ jjaavvaa −−jjaarr ppwwggeenn..jjaarr [[aarrggss]]
+
+OOPPTTIIOONNSS
+       See  documentation for built−in character classes below. The basic sub‐
+       commands for ppwwggeenn include:
+
+       ggeenneerraattee [[ooppttiioonnss]] [[ppaaiirrss]]
+
+       This will generate a password using the given options. If a profile  is
+       specified,  the  options  given  on  the command−line will override any
+       options in that profile with the ones provided. If the options  include
+       an assertion to save the profile, any provided pairs will be saved with
+       it. If specified in the options, the generated password will be  pushed
+       to the clipboard.
+
+       −−cc   [[<<ttaagg>>]]  [[<<nnaammeess>>]]  [[<<cchhaarrsseett>>]]  or  −−−−cchhaarrsseett  [[<<ttaagg>>]]  [[<<nnaammeess>>]]
+       [[<<cchhaarrsseett>>]]
+
+       Defines the normal character set to be used when  selecting  characters
+       for  the  password.  The  default is aallll−−cchhaarrss. A tag may be specified,
+       which can then be used as a character class name elsewhere in the invo‐
+       cation. Note that the definition of cchhaarrsseett does not affect the defini‐
+       tion of ssppeecciiaall−−cchhaarrsseett, iinniittiiaall−−cchhaarrsseett, or eennddiinngg−−cchhaarrsseett, unless the
+       tag  defined with charset is used in these character classes, or unless
+       the −−−−gglloobbaall flag is used, which causes all the other character classes
+       to use cchhaarrsseett by default.
+
+       −−mm <<nnuummbbeerr>> or −−−−mmaaxx <<nnuummbbeerr>>
+
+       The maximum number of characters allowed for the password.
+
+       −−nn <<nnuummbbeerr>> or −−−−mmiinn <<nnuummbbeerr>>
+
+       The minimum number of characters allowed for the password.
+
+       −−mmdd <<nnuummbbeerr>> or −−−−mmaaxx−−nnuummbbeerrss <<nnuummbbeerr>>
+
+       The  maximum  number of numeric digits in the password. If both min and
+       max values are used, the program picks a random  number  of  characters
+       between  the  two (inclusive) that must be numeric. If −−−−mmaaxx−−nnuummbbeerrss is
+       less than −−−−mmiinn−−nnuummbbeerrss, pwgen displays an error and quits.  −−nndd  <<nnuumm‐‐
+       bbeerr>> or −−−−mmiinn−−nnuummbbeerrss <<nnuummbbeerr>>
+
+       The  minimum  number  of  numeric  digits in the password. See also the
+       description of −−−−mmaaxx−−nnuummbbeerrss.
+
+       −−mmcc <<nnuummbbeerr>> or −−−−mmaaxx−−ccaappiittaallss <<nnuummbbeerr>>
+
+       The maximum number of capital letters to use in the password.  If  both
+       min and max values are used, the program picks a random number of char‐
+       acters between the two (inclusive) that must  be  capital  letters.  If
+       −−−−mmaaxx−−ccaappiittaallss is less than −−−−mmiinn−−ccaappiittaallss, pwgen displays an error and
+       quits.
+
+       −−nncc <<nnuummbbeerr>> or −−−−mmiinn−−ccaappiittaallss <<nnuummbbeerr>>
+
+       The minimum number of capitals letters to use in the password. See also
+       the description of −−−−mmaaxx−−ccaappiittaallss.
+
+       −−mmss <<nnuummbbeerr>> or −−−−mmaaxx−−ssppeecciiaall <<nnuummbbeerr>>
+
+       The maximum number of ´special´ characters to use in the password. Spe‐
+       cial characters are punctuation symbols on a standard U.S. keyboard and
+       do  not  include Unicode characters such as umlauts or accented charac‐
+       ters. If both min and max values are used, the program picks  a  random
+       number  of  characters between the two (inclusive) that must be special
+       characters. If −−−−mmaaxx−−ssppeecciiaall is less than −−−−mmiinn−−ssppeecciiaall, pwgen displays
+       an error and quits.
+
+       −−nnss <<nnuummbbeerr>> or −−−−mmiinn−−ssppeecciiaall <<nnuummbbeerr>>
+
+       The  minimum number of ´special´ characters to use in the password. See
+       also the description of −−−−mmaaxx−−ssppeecciiaall.
+
+       −−sscc <<cchhaarrsseett>> or −−−−ssppeecciiaall−−cchhaarrsseett <<cchhaarrsseett>>
+
+       Use the given string as the "special" or punctuation characters in  the
+       generated  password,  instead  of the standard charset ´special´. Other
+       standard charset names (such as ´numeric´) may also be used.
+
+       −−iicc <<cchhaarrsseett>> or −−−−iinniittiiaall−−cchhaarrsseett <<cchhaarrsseett>>
+
+       Require that a character in the given string be the  initial  character
+       of  the  password.  Other  standard charset names (such as ´alpha´) may
+       also be used.
+
+       −−eecc <<cchhaarrsseett>> or −−−−eennddiinngg−−cchhaarrsseett <<cchhaarrsseett>>
+
+       Require that a character in the given string be  the  ending  or  final
+       character  of  the  password.  Other  standard  charset  names (such as
+       ´alphanumeric´) may also be used.
+
+       −−aass or −−−−aallllooww−−ssppaacceess
+
+       Include the space character in the charset used to pick passwords,  and
+       do  not  remove  spaces  if  a dictionary word contains one. However, a
+       space cannot be the first or last character of a password.
+
+       −−ccpp <<nnaammee>> or −−−−ccrreeaattee−−pprrooffiillee <<nnaammee>>
+
+       Save a profile with this particular set  of  options.  If  the  profile
+       already exists, the −−−−ffoorrccee flag must be used to overwrite the profile,
+       or the program will exit with  an  error.  The  profile´s  options  are
+       defined  as  the  profile  identified  by −−−−uussee−−pprrooffiillee, if applicable,
+       overlaid with the command−line options provided.
+
+       −−ff or −−−−ffoorrccee
+
+       If −−−−ccrreeaattee−−pprrooffiillee is specified, and a profile of  that  name  already
+       exists,  the −−−−ffoorrccee flag will silently replace it with the new profile
+       being defined. If a profile of  the  same  name  does  not  exist,  the
+       −−−−ffoorrccee flag, if present, has no effect.
+
+       −−uupp <<nnaammee>> or −−−−uussee−−pprrooffiillee <<nnaammee>>
+
+       Use  the specified profile, overlaid with any command−line options that
+       are provided. If the profile does not exist, a warning  is  printed  to
+       STDERR.
+
+       −−gg or −−−−gglloobbaall
+
+       Use the character class defined with the −−−−cchhaarrsseett option for all char‐
+       acter classes, including special, initial and  ending  character  sets.
+       This  flag  is  ignored  unless −−−−cchhaarrsseett is defined. Note that even if
+       this flag is used, if one or more of the secondary character  sets  are
+       defined,  they  will  override  this  setting.  For  example, if −−−−ssppee‐‐
+       cciiaall−−cchhaarrsseett ""−−__.."" is defined, the iinniittiiaall−−cchhaarrsseett  and  eennddiinngg−−cchhaarrsseett
+       classes  will match the cchhaarrsseett definition, but ssppeecciiaall−−cchhaarrsseett will be
+       defined as per the command−line specification.
+
+       −−rr or −−−−mmeemmoorraabbllee <<ppcctt>>
+
+       If an alphabetic (upper or lower) character is randomly  chosen,  there
+       is  a  ´pct´ chance that it will be replaced by a whole or partial dic‐
+       tionary word. This  will  lengthen  the  candidate  password  by  (most
+       likely)  more than one character. This word selection may be mutated by
+       the other rules; for example, a requirement to include four  digits  in
+       the password may cause some of the characters in the word to be changed
+       to digits.
+
+PPoossssiibbllee FFuuttuurree ´´ggeenneerraattee´´ FFllaaggss
+       −−−−ppaasssswwoorrdd oorr −−pp: Use the given password to modify or  use  a  profile.
+       Default  is  to  ask the user interactively in a way that does not echo
+       the password to the screen.
+       −−−−ddiicctt oorr −−dd: Use the given file as the dictionary for memorable  pass‐
+       words,  one  word  per  line. This option has no effect if the ´−−memo‐
+       rable´ flag is not used.
+
+       ·   _f_e_t_c_h _o_p_t_i_o_n_s <profile−tag>[:meta−tag]: This will fetch either  the
+           password  for  the  given  profile, or the data associated with the
+           given meta−tag in the profile. If the password for the  profile  is
+           not cached, the user will be asked for the password.
+
+
+
+CChhaarraacctteerr CCllaasssseess
+       The  following character classes are supported out−of−the−box by ppwwggeenn.
+       You may craft other  ones  at  the  command−line  using  the  −−−−cchhaarrsseett
+       option.  Character classes are considered "joined" if they are included
+       together in square brackets []. Any of these can be  used  directly  at
+       the command line when you invoke pwgen.
+
+       aallpphhaa−−lloowweerr => "abcdefghijklmnopqrstuvwxyz"
+       rriigghhtt−−aallpphhaa−−lloowweerr => "hynmjuiklop"
+       lleefftt−−aallpphhaa−−lloowweerr => "qazwsxedcrfvtgb"
+       aallpphhaa−−uuppppeerr => "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+       aallpphhaa => [alpha−lower alpha−upper]
+       nnuummeerriicc => "0123456789"
+       lleefftt−−nnuummeerriicc => "09876"
+       rriigghhtt−−nnuummeerriicc => "12345"
+       aallpphhaannuummeerriicc => [alpha numeric]
+       ssppeecciiaall => "~‘!@#$%^&*()−_=+]}[{;:,<.>/?´|"
+       ssppeecciiaall−−nnooccaappss => "‘−=;´,./[]"
+       rriigghhtt−−ssppeecciiaall−−nnooccaappss => ",./;´[]−="
+       rriigghhtt−−nnooccaappss => [right−alpha−lower right−numeric right−special−nocaps]
+       aallll−−cchhaarrss => [alphanumeric special]
+       aallll−−cchhaarrss−−wwiitthh−−ssppaaccee => [all−chars " "]
+       aallll−−nnoosshhiifftt−−cchhaarrss => [alpha−lower numeric special−nocaps]
+
+EExxaammpplleess
+       $ _p_w_g_e_n _g_e_n_e_r_a_t_e _−_−_m_a_x _3_0 _−_−_m_i_n _2_0 _−_−_m_e_m_o_r_a_b_l_e _9_5 _−_n_c _1 _−_n_s _2 _−_m_d _4 _−_n_d
+       _1 _−_−_a_l_l_o_w_−_s_p_a_c_e_s _5_0 _−_s_c _s_p_e_c_i_a_l
+       Generate a password of between 20 and 30 characters inclusive, with  at
+       least one capital letter, two special characters (symbol), at least one
+       and no more than four digits, using the  ´special´  character  set  for
+       specials,  using  dictionary words with 95 percent odds, and permitting
+       spaces. Example output: "D3T4oratieli3Su(instTn−eerac"
+       $ _p_w_g_e_n _g_e_n_e_r_a_t_e _−_−_u_s_e_−_p_r_o_f_i_l_e _s_t_a_n_d_a_r_d
+       Generate a password using the standard profile. The standard profile is
+       a  profile generated by pwgen by default when the program is first run.
+       It represents a "reasonable" set of rules  that  will  work  with  most
+       password algorithms.
+
+BBuuggss
+       ...
+
+LLiicceennssee
+       Copyright Â© 2013 Arnold Software Associates and Steven D. Arnold
+
+       Distributed under the Eclipse Public License, the same as Clojure.
+
+
+
+                                 November 2013                        PWGEN()

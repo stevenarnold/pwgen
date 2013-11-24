@@ -4,7 +4,7 @@
   (:use [pwgen.core])
   (:require [me.raynes.fs :refer [temp-dir copy file]]))
 
-(testable-privates pwgen.core read-profiles add-profile)
+(testable-privates pwgen.core read-profiles)
 
 (facts "about invoking pwgen"
        (fact "we can invoke pwgen with only the 'generate' subcommand"
@@ -51,6 +51,8 @@
                     ;; Would like to introspect into this object a little more
                     (throws Object))
               )
+       ;; Not clear if :ending-charset always produces a password with that ending char
+       ;; Maybe passwords ending in * or + produce an exception (if randomly generated)
        (facts "about generate"
               (facts "a simple invocation produces passwords"
                      (let [example-args {:initial-charset alpha 

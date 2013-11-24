@@ -4,6 +4,7 @@
   [:require [clojure.string :refer [split blank? upper-case]]]
   [:require [clojure.tools.cli :refer [cli]]]
   (:use [slingshot.slingshot :only [throw+ try+]]))
+(use 'clojure.core.contracts)
 (require '[clojure.data.json :as json])
 (import '(java.io File))
 (load "helper-macros")
@@ -88,6 +89,50 @@
         ; (println "with file and no ~ =" file)
         file)))))
 
+;; If all options in the list exist in the hash, print the string, and call
+;; print-rules with the same options with those keys removed.  If all the options
+;; don't exist, then return nil.
+(declare print-rules)
+(def mprint_rules 
+  (with-constraints
+    (fn [options optionset docstring]
+      (if (= (count optionset) 0)
+        nil
+        (let [reduced-options (apply dissoc options optionset)]
+          (if (= (- (count options) (count optionset))
+                 (count reduced-options))
+            (do
+              (println docstring)
+              reduced-options)
+            {}))))
+    (contract mprinting-rules
+              "validates input/output types and properties for result"
+                [options optionset docstring] [(map? options)
+                                               (vector? optionset)
+                                               (every? keyword? optionset)
+                                               (string? docstring)
+                                               => 
+                                               (map? %)
+                                               (not-any? (partial contains? %) optionset)])))
+
+;; Good candidate for a macro.  Taken in a hash and any number of keys, and 
+;; strings for each possible combination of the keys having a Boolean true/
+;; false value.  Maybe some kind of pattern-match idiom.  Then call self
+;; recursively with those keys removed.
+(def print-rules 
+  (with-constraints
+    (fn [options]
+      (-> options
+          (mprint_rules [:min :max] 
+                        (str "- Password must be at least " (:min options) " and no more than " (:max options) " characters long"))
+          (mprint_rules [:min] 
+                        (str "- Password must be at least " (:min options) " characters long"))
+          (mprint_rules [:max] 
+                        (str "- Password may not be more than " (:max options) " characters long"))))
+    (contract printing-rules
+              "validates types of param and return"
+              [options] [map? => map?])))
+
 (defn- save-profiles
   "Create a new ~/.pwgenrc file if it doesn't exist
   and populate it with our profiles."
@@ -133,24 +178,33 @@
  (-read-profiles file :json-str default-profile))
 )
 
-(defn- add-profile
+(def add-profile
   "Add a new profile to the ~/.pwgenrc file."
-  [profile force & args]
-  (let [[min max memorable allow-spaces min-numbers max-numbers
-         min-capitals max-capitals min-special max-special
-         special-charset create-profile] args
-        profile-record (->PasswordProfile min max min-capitals max-capitals
-                                          min-numbers max-numbers min-special
-                                          max-special allow-spaces special-charset
-                                          memorable)
-        all-profiles (pwgen.core/read-profiles)]
-    (defn add-item [] #(spit (get-profile-path)
-          (json/write-str (assoc all-profiles profile profile-record))))
-    (if (contains? all-profiles profile)
-      (if force 
-        (add-item))
-      (add-item))))
-      
+  (with-constraints
+    (fn [profile force args]
+      (let [[min max memorable allow-spaces min-numbers max-numbers
+             min-capitals max-capitals min-special max-special
+             special-charset create-profile] args
+            profile-record (->PasswordProfile min max min-capitals max-capitals
+                                              min-numbers max-numbers min-special
+                                              max-special allow-spaces special-charset
+                                              memorable)
+            all-profiles (pwgen.core/read-profiles)
+            add-item #(spit (get-profile-path)
+                            (json/write-str (assoc all-profiles profile profile-record)))]
+        (if (contains? all-profiles profile)
+          (if force 
+            (add-item))
+          (add-item))))
+    (contract add-profile-contract
+              "Ensure that the input and output params are well formed"
+              [profile force args] [(map? args)
+                                    (every? #(or (string? %) (number? %)) (vals args))
+                                    (every? keyword? (keys args))
+                                    (string? profile)
+                                    =>
+                                    (map? %)
+                                    (every? #(or (string? %) (number? %)) (vals (vals args)))])))
 
 (defn rand-between [at-least at-most]
   (+ at-least (int (rand (- (inc at-most) at-least)))))
@@ -192,15 +246,23 @@
     (zipmap esc-chars
             (map #(str "\\" %) esc-chars))))
 
-(defn normalize-charset
-  [charset & {:keys [as-string] :or {as-string false}}]
-  (let [normalized-charset (if (> (count charset) 0)
-                            (->> charset
-                                 (replace regex-char-esc-smap)
-                                 (reduce str)
-                                 (#(str "[" %1 "]")))
-                            "")]
-    (if as-string normalized-charset (re-pattern normalized-charset))))
+(def normalize-charset
+  "Escape a string that is intended as a regular expression."
+  (with-constraints
+    (fn [charset & {:keys [as-string] :or {as-string false}}]
+      (let [normalized-charset (if (> (count charset) 0)
+                                 (->> charset
+                                      (replace regex-char-esc-smap)
+                                      (reduce str)
+                                      (#(str "[" %1 "]")))
+                                 "")]
+        (if as-string normalized-charset (re-pattern normalized-charset))))
+    (contract normalize-charset-contract
+              "Ensure that strings are properly escaped for a regular expression"
+              [charset & {:keys [as-string] :or {as-string false}}]
+              [(string? charset)
+               =>
+               (or (string? %) (= (re-pattern %) %))])))
 
 (defn charset-diff
   ;; Replace the regex matches described by 'subset' with nothing in
@@ -210,8 +272,9 @@
 
 (defn rule-charset-count
   [candidate num-chars charset & {:keys [rule-fn] :or {rule-fn false}}]
-  ; (println "num-chars =" num-chars)
-  ; (println "charset =" charset)
+  (println "num-chars =" num-chars)
+  (println "charset =" charset)
+  (println "candidate =" candidate)
   (if (= 0 (count charset))
     candidate
     (loop [curr-password candidate]
@@ -245,17 +308,26 @@
   ; (println "number charset validation")
   (rule-charset-count candidate count-numbers numeric))
 
-(defn rule-capitals
-  [candidate count-capitals]
-  ; (println "capital charset validation")
-  (rule-charset-count candidate count-capitals alpha-upper 
-                      :rule-fn (fn [charset curr-password] 
-                                 (let [rand-chr (str (rand-nth charset))
-                                       rand-pos (rand (count curr-password))
-                                       selected-char (nth curr-password rand-pos)]
-                                   (if (clojure.core/re-seq (re-pattern (str selected-char)) alpha)
-                                     (str (string-splice curr-password (upper-case selected-char) rand-pos))
-                                     (str (string-splice curr-password rand-chr rand-pos)))))))
+(def rule-capitals
+  (with-constraints
+    (fn [candidate count-capitals]
+      ; (println "capital charset validation")
+      (rule-charset-count candidate count-capitals alpha-upper 
+                          :rule-fn (fn [charset curr-password] 
+                                     (let [rand-chr (str (rand-nth charset))
+                                           rand-pos (rand (count curr-password))
+                                           selected-char (nth curr-password rand-pos)]
+                                       (println "selected-char is" selected-char)
+                                       (if (clojure.core/re-seq (re-pattern (normalize-charset (str selected-char))) alpha)
+                                         (str (string-splice curr-password (upper-case selected-char) rand-pos))
+                                         (str (string-splice curr-password rand-chr rand-pos)))))))
+    (contract place-capitals
+              "validate sanity of input and correctness of result"
+              [candidate count-capitals] [(string? candidate)
+                                          (number? count-capitals)
+                                          => 
+                                          string?
+                                          (= count-capitals (count (clojure.core/re-seq (normalize-charset alpha-upper) %)))])))
 
 (defn rule-specials
   [candidate count-specials special-charset]
@@ -341,8 +413,11 @@
     ; (println "num-numbers: " num-numbers "; num-capitals: " num-capitals "; num-specials: " num-specials)
     ; (println "charset = %[" charset "]")
     ; (println "resolved-special-charset = %[" resolved-special-charset "]")
+    (println "args =" args)
+    (println "map? args =" (map? args))
+    (println "create-profile =" create-profile)
     (if (not (blank? create-profile))
-      (apply (partial add-profile create-profile force) args))
+      (add-profile create-profile force args))
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password
@@ -417,10 +492,11 @@
               (let [profile (get (read-profiles) use-profile)
                     merged-options (merge-profile profile (nth args 0))
                     result (generate merged-options)]
+                (if true (print-rules merged-options) false)
                 (set-clip! result)
                 (println result))))
           ; (catch Object o
             ; (println "The rules provided are not possible given the allowed size of the password: " o))
       "help"
-      (println (slurp (clojure.java.io/resource "README.md")))
+      (println (slurp (clojure.java.io/resource "README")))
       (println (str "Invalid subcommand: '" subcommand "'")))))
