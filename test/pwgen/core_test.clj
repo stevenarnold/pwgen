@@ -97,23 +97,14 @@
                       (and (>= pwlen 20) (<= pwlen 30)) => truthy))
               )
        (facts "about profile functions"
-              (future-fact "can add a profile"
-                    (let [test-dir (temp-dir "test-")
-                          profile-file (str test-dir "sample-profile")]
-                      ;; Setup
-                      (copy (file "test/pwgen/sample-profile") profile-file)
-                      ;; Get the profile
-                      (let [profiles (read-profiles profile-file)
-                            sp (profiles "standard")]
-                        ;; Modify the profile
-                        (add-profile "standard" true 10 (sp "max") (sp "make-memorable-pct") (sp "min-capitals") (sp "max-capitals")
-                                     (sp "min-numeric") (sp "max-numeric") (sp "min-special") (sp "max-special")
-                                     (sp "allow-spaces") (sp "special-charset") true)
-                        ;; Read the profile back and expect the change to have taken place
-                        (let [profiles (read-profiles profile-file)]
-                          (println ((profiles "standard") "min"))
-                          (= ((profiles "standard") "min") 10)))) => truthy
-                    )
+              (fact "can modify a profile"
+                    (let [sp {"standard" {"max-numbers" 4, "max" 30, "min-capitals" 1,
+                                          "make-memorable-pct" 100, "min-numbers" 1, "max-special" 4,
+                                          "allow-spaces" 0, "min" 20, "max-capitals" 4,
+                                          "special-charset" "special","min-special" 1}}
+                          ;; Modify the profile
+                          ans (add-profile-map "standard" (assoc-in sp ["standard" "min"] 10))]
+                      (get-in-profile ans ["standard" "min"]) => 10))
               (future-fact "can override an existing profile with force flag"
                            ;; Get profile
                            ;; Add to profile

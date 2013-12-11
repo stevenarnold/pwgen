@@ -3,6 +3,7 @@
   [:require [clojure.core :refer [re-pattern re-seq]]]
   [:require [clojure.string :refer [split blank? upper-case]]]
   [:require [clojure.tools.cli :refer [cli]]]
+  [:require [clojure.walk :refer [keywordize-keys]]]
   (:use [slingshot.slingshot :only [throw+ try+]]))
 (use 'clojure.core.contracts)
 (require '[clojure.data.json :as json])
@@ -58,21 +59,27 @@
 ;;     clipboard.  If the profile was encrypted, the user will be prompted
 ;;     for the master password.
 
-(defrecord+defaults PasswordProfile
-  [min                     15        ;; Password must be at least this long
-   max                     25        ;; And no longer than this
-   min-capitals             1        ;; Use at least this many uppercase chars
-   max-capitals             4        ;; Use no more than this many uppercase chars
-   min-numeric              1        ;; Use at least this many numeric chars
-   max-numeric              4        ;; Use no more than this many numeric chars
-   min-special              1        ;; Use at least this many special characters
-   max-special              4        ;; Use no more than this many special characters
-   allow-spaces             true     ;; Allow spaces to be in password
-   special-charset          #"[-_.]" ;; Use these special characters by default
-   make-memorable-pct       100]     ;; Percentage chance we'll use a dictionary 
-                                     ;;     word when an alpha char would have been
-                                     ;;     picked
+(defrecord PasswordProfile
+  [min                ;; Password must be at least this long
+   max                ;; And no longer than this
+   min-capitals       ;; Use at least this many uppercase chars
+   max-capitals       ;; Use no more than this many uppercase chars
+   min-numbers        ;; Use at least this many numeric chars
+   max-numbers        ;; Use no more than this many numeric chars
+   min-special        ;; Use at least this many special characters
+   max-special        ;; Use no more than this many special characters
+   allow-spaces       ;; Allow spaces to be in password
+   special-charset    ;; Use these special characters by default
+   memorable]         ;; Percentage chance we'll use a dictionary 
+                      ;;     word when an alpha char would have been
+                      ;;     picked
   )
+(defn get-in-profile
+  [map-obj ks]
+  (if (= (count ks) 0)
+    map-obj
+    (let [head (if (contains? map-obj (first ks)) (first ks) (keyword (first ks)))]
+      (recur (get map-obj head) (rest ks)))))
 
 (defn-memo get-profile-path
   ([]
@@ -178,33 +185,42 @@
  (-read-profiles file :json-str default-profile))
 )
 
-(def add-profile
-  "Add a new profile to the ~/.pwgenrc file."
+(def add-profile-map
+  "Generate a map representing the new ~/.pwgenrc file."
   (with-constraints
-    (fn [profile force args]
-      (let [[min max memorable allow-spaces min-numbers max-numbers
-             min-capitals max-capitals min-special max-special
-             special-charset create-profile] args
-            profile-record (->PasswordProfile min max min-capitals max-capitals
-                                              min-numbers max-numbers min-special
-                                              max-special allow-spaces special-charset
-                                              memorable)
-            all-profiles (pwgen.core/read-profiles)
-            add-item #(spit (get-profile-path)
-                            (json/write-str (assoc all-profiles profile profile-record)))]
-        (if (contains? all-profiles profile)
-          (if force 
-            (add-item))
-          (add-item))))
+    (fn [profile args]
+      (let [profile-rec (keywordize-keys (args profile))
+            profile-record (map->PasswordProfile profile-rec)
+            all-profiles (pwgen.core/read-profiles)]
+        ; (println "profile = " profile)
+        ; (println "profile-record = " profile-record)
+        ; (println "profile-rec = " profile-rec)
+        ; (println "min = " min ", max = " max)
+        ; (println args)
+        ; (println "result = " (assoc all-profiles profile profile-record))
+        (assoc all-profiles profile profile-record)))
     (contract add-profile-contract
               "Ensure that the input and output params are well formed"
-              [profile force args] [(map? args)
-                                    (every? #(or (string? %) (number? %)) (vals args))
-                                    (every? keyword? (keys args))
-                                    (string? profile)
-                                    =>
-                                    (map? %)
-                                    (every? #(or (string? %) (number? %)) (vals (vals args)))])))
+              [profile args] [
+                              (map? args)
+                              (every? map? (vals args))
+                              (every? #(or (string? %) (number? %)) (first (map vals (vals args))))
+                              (every? #(or (string? %) (keyword? %)) (keys args))
+                              (string? profile)
+                              =>
+                              (map? %)
+                              (every? (fn [x] (or (string? x) (number? x))) (first (map vals (vals %))))
+                              ])))
+
+(defn add-profile
+  "Generate a string representing the new ~/.pwgenrc file."
+  [profile args]
+  (json/write-str (add-profile-map profile args)))
+
+(defn write-profiles!
+  "Write the given profile to the proper profile path."
+  [profile args]
+  (spit (get-profile-path) (add-profile profile args)))
 
 (defn rand-between [at-least at-most]
   (+ at-least (int (rand (- (inc at-most) at-least)))))
@@ -272,9 +288,9 @@
 
 (defn rule-charset-count
   [candidate num-chars charset & {:keys [rule-fn] :or {rule-fn false}}]
-  (println "num-chars =" num-chars)
-  (println "charset =" charset)
-  (println "candidate =" candidate)
+  ; (println "num-chars =" num-chars)
+  ; (println "charset =" charset)
+  ; (println "candidate =" candidate)
   (if (= 0 (count charset))
     candidate
     (loop [curr-password candidate]
@@ -417,7 +433,7 @@
     (println "map? args =" (map? args))
     (println "create-profile =" create-profile)
     (if (not (blank? create-profile))
-      (add-profile create-profile force args))
+      (write-profiles! create-profile force args))
     (loop [curr-password candidate
            tries 0]
       (let [new-candidate (-> curr-password

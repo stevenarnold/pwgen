@@ -9,8 +9,9 @@
                  [slingshot "0.10.3"]
                  [me.raynes/fs "1.4.5"]               ;; File system tools; temp dirs
                  [org.clojure/core.contracts "0.0.5"] ;; Contract-oriented programming
+                 [cdt "1.2.6.2"]
                  ]
-  :plugins [[lein-midje "3.0.0"]
+  :plugins [[lein-midje "3.1.1"]
             [makescript "0.1.0-SNAPSHOT"]]
-  :profiles {:dev {:dependencies [[midje "1.5.1"]]}}
+  :profiles {:dev {:dependencies [[midje "1.6-beta1"]]}}
   :main pwgen.core)

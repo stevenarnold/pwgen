@@ -14,6 +14,9 @@
     (if (blank? err) nil (println "An error occurred while processing subcommand: \n" err))
     out))
 
+(defn clean-project []
+  (exec-cmd "lein clean"))
+
 (defn create-uberjar []
   ;; Create the uberjar
   (exec-cmd "lein uberjar"))
@@ -32,6 +35,7 @@
 
 (defn makescript
   [project & args]
+  (clean-project)
   (let 
     [uberjar-path (extract-path (create-uberjar))]
     (println "Uberjar created at: " uberjar-path)
